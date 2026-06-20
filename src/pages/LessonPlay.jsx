@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  getMeaningQuestions, getArrangeSentences,
+  getMeaningQuestionsAdmin, getArrangeSentences,
   getWordContent, getLessons, updateStreak
 } from '../services/api'
 import { speak, speakTamil, listen, normalizeText, diffWords } from '../services/speechUtils'
@@ -616,7 +616,7 @@ export default function LessonPlay() {
     const load = async () => {
       const [wc, mcq, arr] = await Promise.all([
         getWordContent(lessonId, LANG).then(r => r.data ?? []).catch(() => []),
-        getMeaningQuestions(lessonId, LANG).then(r => r.data ?? []).catch(() => []),
+        getMeaningQuestionsAdmin(lessonId, LANG).then(r => r.data ?? []).catch(() => []),
         getArrangeSentences(lessonId, LANG).then(r => r.data ?? []).catch(() => []),
       ])
 
