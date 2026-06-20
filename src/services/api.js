@@ -86,14 +86,15 @@ export const getMySubscription      = (userId) => API.get(`/subscription/my/${us
 export const getStreak    = (userId) => API.get(`/streak/${userId}`)
 export const updateStreak = (data)   => API.post('/streak/update', data)
 
-// ── Admin Bulk Upload ─────────────────────────────────
-export const getBulkTemplate = () => API.get('/admin/template', { responseType: 'blob' })
-export const uploadBulkExcel = (file) => {
-  const formData = new FormData()
-  formData.append('file', file)
-  return API.post('/admin/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  })
-}
+// ── Admin Import / Export / Templates ─────────────────────────────────────────
+export const getBulkTemplate  = () => API.get('/admin/template', { responseType: 'blob' })
+export const uploadBulkExcel  = (file) => { const fd = new FormData(); fd.append('file', file); return API.post('/admin/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } }) }
+export const downloadTemplate = (type) => API.get(`/admin/template/${type}`, { responseType: 'blob' })
+export const importLessons    = (file) => { const fd = new FormData(); fd.append('file', file); return API.post('/admin/import/lessons', fd, { headers: { 'Content-Type': 'multipart/form-data' } }) }
+export const importWordContent= (file) => { const fd = new FormData(); fd.append('file', file); return API.post('/admin/import/wordcontent', fd, { headers: { 'Content-Type': 'multipart/form-data' } }) }
+export const importMcq        = (file) => { const fd = new FormData(); fd.append('file', file); return API.post('/admin/import/mcq', fd, { headers: { 'Content-Type': 'multipart/form-data' } }) }
+export const importArrange    = (file) => { const fd = new FormData(); fd.append('file', file); return API.post('/admin/import/arrange', fd, { headers: { 'Content-Type': 'multipart/form-data' } }) }
+export const getLessonStats   = () => API.get('/admin/lesson-stats')
+export const grantUserAccess  = (id, grant) => API.post(`/admin/users/${id}/grant-access`, { grant })
 
 export default API

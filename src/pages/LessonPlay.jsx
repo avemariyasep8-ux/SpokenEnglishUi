@@ -1,65 +1,48 @@
-import { useState, useEffect, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  getMeaningQuestions, getArrangeSentences, getReadingSentences,
-  getWordContent, saveAnswer, updateStreak
+  getMeaningQuestions, getArrangeSentences,
+  getWordContent, getLessons, updateStreak
 } from '../services/api'
-import { speak, speakWordByWord, speakTamil, listen, normalizeText, diffWords } from '../services/speechUtils'
+import { speak, speakTamil, listen, normalizeText, diffWords } from '../services/speechUtils'
 import { useAuth } from '../context/AuthContext'
 
 const LANG = 1
 const MAX_MCQ = 5
-const MAX_ARR = 5
+const MAX_ARR = 3
 const shuffle = arr => [...arr].sort(() => Math.random() - 0.5)
 
-function matchVoice(transcript, target) {
-  const n1 = normalizeText(transcript)
-  const n2 = normalizeText(target)
-  if (n1 === n2 || n1.includes(n2)) return true
-  const words = n2.split(' ').filter(Boolean)
-  return words.filter(w => n1.includes(w)).length >= Math.ceil(words.length * 0.7)
-}
-
-// ── Design tokens ─────────────────────────────────────────────────────────────
 const T = {
-  bg:      '#080c14',
-  card:    'rgba(12,20,36,0.95)',
-  border:  'rgba(99,179,237,0.15)',
-  accent1: '#38bdf8',
-  accent2: '#818cf8',
-  accent3: '#34d399',
-  danger:  '#f87171',
-  gold:    '#fbbf24',
-  text:    '#e2e8f0',
-  muted:   '#64748b',
+  bg: '#080c14', card: 'rgba(12,20,36,0.95)',
+  accent1: '#38bdf8', accent2: '#818cf8', accent3: '#34d399',
+  danger: '#f87171', gold: '#fbbf24', orange: '#fb923c',
+  text: '#e2e8f0', muted: '#64748b',
 }
 
 const glass = (tint = T.accent1, glow = false) => ({
-  background: `linear-gradient(135deg, rgba(12,20,36,0.97) 0%, rgba(15,25,45,0.95) 100%)`,
-  border: `1px solid ${tint}30`,
-  borderRadius: 20,
-  boxShadow: glow ? `0 0 32px ${tint}22, inset 0 1px 0 ${tint}20` : `0 4px 24px rgba(0,0,0,0.4)`,
+  background: 'linear-gradient(135deg,rgba(12,20,36,0.97) 0%,rgba(15,25,45,0.95) 100%)',
+  border: `1px solid ${tint}30`, borderRadius: 20,
+  boxShadow: glow ? `0 0 32px ${tint}22, inset 0 1px 0 ${tint}20` : '0 4px 24px rgba(0,0,0,0.4)',
   backdropFilter: 'blur(16px)',
 })
 
-const btn = (variant = 'primary') => {
-  const v = {
-    primary:  { background: 'linear-gradient(135deg,#38bdf8,#818cf8)', color: '#fff', border: 'none' },
-    success:  { background: 'linear-gradient(135deg,#34d399,#059669)', color: '#fff', border: 'none' },
-    danger:   { background: 'linear-gradient(135deg,#f87171,#dc2626)', color: '#fff', border: 'none' },
-    ghost:    { background: 'rgba(255,255,255,0.05)', color: T.text, border: `1px solid rgba(255,255,255,0.12)` },
-    outline:  { background: 'transparent', color: T.accent1, border: `1.5px solid ${T.accent1}` },
-    gold:     { background: 'linear-gradient(135deg,#fbbf24,#f59e0b)', color: '#1a1a00', border: 'none' },
-  }[variant]
-  return {
-    ...v, padding: '13px 28px', borderRadius: 14, fontWeight: 700,
-    fontSize: '0.95rem', cursor: 'pointer', transition: 'all 0.18s',
-    width: '100%', display: 'block', textAlign: 'center',
-  }
-}
+const btn = (v = 'primary') => ({
+  ...(({
+    primary: { background: 'linear-gradient(135deg,#38bdf8,#818cf8)', color: '#fff', border: 'none' },
+    success: { background: 'linear-gradient(135deg,#34d399,#059669)', color: '#fff', border: 'none' },
+    danger:  { background: 'linear-gradient(135deg,#f87171,#dc2626)', color: '#fff', border: 'none' },
+    ghost:   { background: 'rgba(255,255,255,0.05)', color: T.text, border: '1px solid rgba(255,255,255,0.12)' },
+    outline: { background: 'transparent', color: T.accent1, border: `1.5px solid ${T.accent1}` },
+    gold:    { background: 'linear-gradient(135deg,#fbbf24,#f59e0b)', color: '#1a1a00', border: 'none' },
+    orange:  { background: 'linear-gradient(135deg,#fb923c,#ea580c)', color: '#fff', border: 'none' },
+  })[v]),
+  padding: '13px 28px', borderRadius: 14, fontWeight: 700,
+  fontSize: '0.95rem', cursor: 'pointer', transition: 'all 0.18s',
+  width: '100%', display: 'block', textAlign: 'center',
+})
 
-// ── Sub-components ─────────────────────────────────────────────────────────────
+// ── Shared ────────────────────────────────────────────────────────────────────
 
 function AuraBg() {
   return (
@@ -72,39 +55,35 @@ function AuraBg() {
   )
 }
 
-function TopBar({ hearts, xp, step, total, onLang, lang, onExit }) {
+function TopBar({ hearts, xp, step, total, lang, onLang, onExit, phase }) {
   const pct = total > 0 ? (step / total) * 100 : 0
+  const barClr = phase === 'retry'
+    ? 'linear-gradient(90deg,#fb923c,#f87171)'
+    : 'linear-gradient(90deg,#38bdf8,#818cf8)'
   return (
     <div style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(8,12,20,0.92)',
       backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(99,179,237,0.1)' }}>
-      <div style={{ maxWidth: 720, margin: '0 auto', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
-        {/* Exit button */}
+      <div style={{ maxWidth: 720, margin: '0 auto', padding: '10px 20px',
+        display: 'flex', alignItems: 'center', gap: 14 }}>
         <button onClick={onExit}
           style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)',
-            borderRadius: 8, color: '#64748b', cursor: 'pointer', fontSize: '1rem',
-            padding: '4px 10px', lineHeight: 1, flexShrink: 0 }}>✕</button>
-        {/* Hearts */}
+            borderRadius: 8, color: T.muted, cursor: 'pointer', fontSize: '1rem',
+            padding: '4px 10px', flexShrink: 0 }}>✕</button>
         <div style={{ display: 'flex', gap: 4 }}>
-          {Array.from({ length: 3 }).map((_, i) => (
-            <span key={i} style={{ fontSize: '1.2rem', opacity: i < hearts ? 1 : 0.2 }}>♥</span>
-          ))}
+          {[0,1,2].map(i => <span key={i} style={{ fontSize: '1.2rem', opacity: i < hearts ? 1 : 0.2 }}>♥</span>)}
         </div>
-        {/* Progress bar */}
         <div style={{ flex: 1, height: 8, background: 'rgba(255,255,255,0.08)', borderRadius: 99, overflow: 'hidden' }}>
-          <motion.div style={{ height: '100%', background: 'linear-gradient(90deg,#38bdf8,#818cf8)', borderRadius: 99 }}
+          <motion.div style={{ height: '100%', background: barClr, borderRadius: 99 }}
             animate={{ width: `${pct}%` }} transition={{ duration: 0.5 }} />
         </div>
-        {/* XP */}
-        <div style={{ fontSize: '0.82rem', color: T.gold, fontWeight: 700, whiteSpace: 'nowrap' }}>⚡{xp}</div>
-        {/* Lang toggle */}
+        <div style={{ fontSize: '0.82rem', color: T.gold, fontWeight: 700 }}>⚡{xp}</div>
         <div style={{ display: 'flex', background: 'rgba(255,255,255,0.06)', borderRadius: 10, padding: 3, gap: 2 }}>
           {['EN','தமிழ்'].map(l => (
             <button key={l} onClick={() => onLang(l === 'EN' ? 'en' : 'ta')}
-              style={{ padding: '4px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700,
+              style={{ padding: '4px 10px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                fontSize: '0.75rem', fontWeight: 700,
                 background: (l === 'EN') === (lang === 'en') ? T.accent1 : 'transparent',
-                color: (l === 'EN') === (lang === 'en') ? '#fff' : T.muted }}>
-              {l}
-            </button>
+                color: (l === 'EN') === (lang === 'en') ? '#fff' : T.muted }}>{l}</button>
           ))}
         </div>
       </div>
@@ -112,125 +91,179 @@ function TopBar({ hearts, xp, step, total, onLang, lang, onExit }) {
   )
 }
 
-function Gem({ color = '#38bdf8', size = 52, animate = false }) {
+function StepLabel({ text, color }) {
   return (
-    <motion.div
-      animate={animate ? { scale: [1, 1.08, 1], filter: [`drop-shadow(0 0 8px ${color})`, `drop-shadow(0 0 18px ${color})`, `drop-shadow(0 0 8px ${color})`] } : {}}
-      transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
-      style={{ fontSize: size, display: 'inline-block', lineHeight: 1 }}>
-      💎
-    </motion.div>
+    <div style={{ textAlign: 'center', marginBottom: 18 }}>
+      <span style={{ fontSize: '0.68rem', fontWeight: 800, color, letterSpacing: 3,
+        textTransform: 'uppercase', background: `${color}15`, padding: '5px 16px', borderRadius: 99 }}>
+        {text}
+      </span>
+    </div>
   )
 }
 
-function SpeakRow({ text, lang, onTamilSpeak }) {
+function SpeakRow({ text, onTamil }) {
   return (
-    <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginTop: 12 }}>
+    <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginTop: 14 }}>
       <button onClick={() => speak(text)}
         style={{ ...btn('ghost'), width: 'auto', padding: '8px 18px', fontSize: '0.82rem' }}>🔊 English</button>
       <button onClick={() => speak(text, 'en-US', 0.58)}
         style={{ ...btn('ghost'), width: 'auto', padding: '8px 18px', fontSize: '0.82rem' }}>🐢 Slow</button>
-      <button onClick={() => onTamilSpeak?.(text)}
-        style={{ ...btn('ghost'), width: 'auto', padding: '8px 18px', fontSize: '0.82rem', color: '#f59e0b', borderColor: '#f59e0b50' }}>
-        🎙 தமிழ்
-      </button>
+      {onTamil && (
+        <button onClick={() => onTamil(text)}
+          style={{ ...btn('ghost'), width: 'auto', padding: '8px 18px', fontSize: '0.82rem',
+            color: '#f59e0b', borderColor: '#f59e0b50' }}>🎙 தமிழ்</button>
+      )}
     </div>
   )
 }
 
-function WordByWordDiff({ diff }) {
-  if (!diff?.length) return null
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 10px', justifyContent: 'center', marginTop: 14 }}>
-      {diff.map((d, i) => (
-        <span key={i} style={{
-          padding: '4px 10px', borderRadius: 8, fontSize: '0.9rem', fontWeight: 600,
-          background: d.correct ? 'rgba(52,211,153,0.15)' : 'rgba(248,113,113,0.15)',
-          color: d.correct ? T.accent3 : T.danger,
-          border: `1px solid ${d.correct ? T.accent3 : T.danger}40`,
-        }}>{d.correct ? '✓' : '✗'} {d.word}</span>
-      ))}
-    </div>
-  )
-}
+// ── Step 1: Intro ─────────────────────────────────────────────────────────────
 
-function HintPanel({ pattern }) {
-  const [open, setOpen] = useState(false)
-  if (!pattern) return null
-  return (
-    <div style={{ marginBottom: 14 }}>
-      <button onClick={() => setOpen(o => !o)}
-        style={{ ...btn('outline'), width: 'auto', padding: '7px 16px', fontSize: '0.8rem', margin: '0 auto', display: 'block' }}>
-        {open ? '▲' : '💡'} Pattern Hint
-      </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            style={{ ...glass(T.accent2), padding: '12px 18px', marginTop: 10, textAlign: 'center', color: T.accent2, fontFamily: 'monospace', fontSize: '0.88rem', letterSpacing: 0.5 }}>
-            {pattern}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
-
-// ── Step screens ─────────────────────────────────────────────────────────────
-
-function IntroStep({ lessonName, onNext }) {
+function IntroStep({ lessonName, description, onNext }) {
   useEffect(() => {
-    setTimeout(() => speak(`Welcome! Today we will learn about ${lessonName}. Let us begin!`), 600)
-  }, [lessonName])
+    setTimeout(() => speak(`Today we learn about ${lessonName}. ${description}. Let us begin!`), 600)
+  }, [])
 
+  const steps = ['📝 Meaning & Use', '💬 Example Sentences', '✏️ Fill in Blank', '🧩 Arrange Words', '🎙 Read Aloud']
   return (
     <motion.div initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }}
-      style={{ ...glass(T.accent1, true), padding: '40px 28px', textAlign: 'center', maxWidth: 520, margin: '0 auto' }}>
-      <Gem animate size={68} />
-      <h1 style={{ fontSize: '2rem', fontWeight: 900, color: T.accent1, marginTop: 20, marginBottom: 8 }}>
-        Let's Start!
-      </h1>
-      <p style={{ color: T.muted, fontSize: '0.95rem', marginBottom: 10 }}>{lessonName}</p>
-      <p style={{ color: T.text, fontSize: '0.9rem', lineHeight: 1.6, marginBottom: 28, maxWidth: 340, margin: '0 auto 28px' }}>
-        Speak clearly. Listen carefully. Take your time — you have got this! 🎯
+      style={{ ...glass(T.accent1, true), padding: '44px 32px', textAlign: 'center', maxWidth: 520, margin: '0 auto' }}>
+      <motion.div
+        animate={{ scale: [1,1.1,1], filter: ['drop-shadow(0 0 8px #38bdf8)','drop-shadow(0 0 24px #38bdf8)','drop-shadow(0 0 8px #38bdf8)'] }}
+        transition={{ duration: 2.4, repeat: Infinity }}
+        style={{ fontSize: 72, marginBottom: 20 }}>📖</motion.div>
+      <div style={{ fontSize: '0.7rem', fontWeight: 800, color: T.accent3, letterSpacing: 3, marginBottom: 12 }}>TODAY'S LESSON</div>
+      <h1 style={{ fontSize: '2.4rem', fontWeight: 900, color: T.accent1, marginBottom: 12 }}>{lessonName}</h1>
+      <p style={{ color: T.muted, fontSize: '0.9rem', lineHeight: 1.6, marginBottom: 28, maxWidth: 340, margin: '0 auto 28px' }}>
+        {description}
       </p>
-      <button onClick={onNext} style={btn('primary')}>Begin ▶</button>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 32 }}>
+        {steps.map((s, i) => (
+          <span key={i} style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 99,
+            padding: '5px 14px', fontSize: '0.78rem', color: T.muted, border: '1px solid rgba(255,255,255,0.08)' }}>
+            {s}
+          </span>
+        ))}
+      </div>
+      <button onClick={onNext} style={btn('primary')}>▶ Start Learning</button>
     </motion.div>
   )
 }
 
-function DefinitionStep({ word, lang, onNext, onTamilSpeak }) {
-  useEffect(() => { setTimeout(() => speak(word.exampleEn), 700) }, [word])
+// ── Step 2: Meaning & Use ──────────────────────────────────────────────────────
+
+function MeaningStep({ word, lang, onNext }) {
+  useEffect(() => {
+    setTimeout(() => speak(`${word.wordName}. ${word.definitionEn}`), 700)
+  }, [word])
+
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-      <div style={{ textAlign: 'center', marginBottom: 20 }}>
-        <span style={{ fontSize: '0.72rem', fontWeight: 800, color: T.accent3, letterSpacing: 3, textTransform: 'uppercase' }}>Word of the Day</span>
-      </div>
-      {/* Word name card */}
-      <div style={{ ...glass(T.accent3, true), padding: '24px 28px', marginBottom: 16, textAlign: 'center' }}>
-        <div style={{ fontSize: '2rem', fontWeight: 900, color: T.accent3, marginBottom: 6 }}>{word.wordName}</div>
-        <div style={{ fontFamily: 'monospace', color: T.accent2, fontSize: '0.85rem', marginBottom: 14 }}>
-          📐 {word.sentencePattern}
+      <StepLabel text="Meaning & Use" color={T.accent3} />
+
+      <div style={{ ...glass(T.accent3, true), padding: '30px 32px', marginBottom: 16, textAlign: 'center' }}>
+        <div style={{ fontSize: '3rem', fontWeight: 900, color: T.accent3, letterSpacing: -1, marginBottom: 10 }}>
+          {word.wordName}
         </div>
-        <div style={{ color: T.text, lineHeight: 1.7, fontSize: '0.93rem' }}>
+        {word.sentencePattern && (
+          <div style={{ display: 'inline-block', background: 'rgba(129,140,248,0.12)',
+            border: '1px solid #818cf840', borderRadius: 10, padding: '6px 18px',
+            fontFamily: 'monospace', color: T.accent2, fontSize: '0.88rem', marginBottom: 18 }}>
+            📐 {word.sentencePattern}
+          </div>
+        )}
+        <p style={{ color: T.text, lineHeight: 1.8, fontSize: '1rem', margin: 0 }}>
           {lang === 'ta' ? word.definitionTa : word.definitionEn}
+        </p>
+      </div>
+
+      {word.definitionTa && (
+        <div style={{ ...glass(T.gold), padding: '16px 22px', marginBottom: 16 }}>
+          <div style={{ fontSize: '0.68rem', fontWeight: 800, color: T.gold, letterSpacing: 2, marginBottom: 8 }}>
+            தமிழ் பொருள் (TAMIL MEANING)
+          </div>
+          <p style={{ color: T.text, fontSize: '0.95rem', lineHeight: 1.7, margin: 0 }}>{word.definitionTa}</p>
         </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 20 }}>
+        <button onClick={() => speak(word.wordName)}
+          style={{ ...btn('ghost'), width: 'auto', padding: '9px 22px', fontSize: '0.85rem' }}>
+          🔊 Hear Word
+        </button>
+        <button onClick={() => speak(`${word.wordName}. ${word.definitionEn}`)}
+          style={{ ...btn('ghost'), width: 'auto', padding: '9px 22px', fontSize: '0.85rem' }}>
+          📖 Full Meaning
+        </button>
       </div>
-      {/* Example card */}
-      <div style={{ ...glass(T.accent1), padding: '20px 24px', marginBottom: 18 }}>
-        <div style={{ fontSize: '0.72rem', color: T.muted, fontWeight: 700, marginBottom: 10, letterSpacing: 2 }}>EXAMPLE</div>
-        <div style={{ fontSize: '1.05rem', color: T.text, fontStyle: 'italic', marginBottom: 6 }}>"{word.exampleEn}"</div>
-        {lang === 'ta' && <div style={{ color: T.gold, fontSize: '0.9rem' }}>{word.exampleTa}</div>}
-        <SpeakRow text={word.exampleEn} onTamilSpeak={onTamilSpeak} />
-      </div>
-      <button onClick={onNext} style={btn('primary')}>Next →</button>
+
+      <button onClick={onNext} style={btn('primary')}>Next: Example Sentence →</button>
     </motion.div>
   )
 }
+
+// ── Step 3: Example Sentence ───────────────────────────────────────────────────
+
+function ExampleStep({ word, lang, onNext }) {
+  useEffect(() => {
+    setTimeout(() => speak(word.exampleEn), 700)
+  }, [word])
+
+  const highlight = (text) => {
+    if (!word.wordName || !text) return text
+    const parts = text.split(new RegExp(`(${word.wordName})`, 'gi'))
+    return parts.map((p, i) =>
+      p.toLowerCase() === word.wordName.toLowerCase()
+        ? <span key={i} style={{ color: T.accent3, fontWeight: 800, textDecoration: 'underline',
+            textDecorationStyle: 'dotted' }}>{p}</span>
+        : p
+    )
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+      <StepLabel text="Example Sentence" color={T.accent1} />
+
+      <div style={{ ...glass(T.accent1, true), padding: '28px 28px', marginBottom: 16, textAlign: 'center' }}>
+        <div style={{ fontSize: '0.7rem', color: T.muted, letterSpacing: 2, marginBottom: 14 }}>ENGLISH EXAMPLE</div>
+        <p style={{ color: T.text, fontSize: '1.25rem', fontWeight: 600, lineHeight: 1.7, fontStyle: 'italic', margin: 0 }}>
+          "{highlight(word.exampleEn)}"
+        </p>
+        <SpeakRow text={word.exampleEn} onTamil={t => speakTamil(t)} />
+      </div>
+
+      {word.exampleTa && (
+        <div style={{ ...glass(T.gold), padding: '18px 24px', marginBottom: 16, textAlign: 'center' }}>
+          <div style={{ fontSize: '0.68rem', fontWeight: 800, color: T.gold, letterSpacing: 2, marginBottom: 10 }}>
+            தமிழ் மொழிபெயர்ப்பு (TAMIL)
+          </div>
+          <p style={{ color: T.text, fontSize: '1rem', lineHeight: 1.7, margin: 0 }}>{word.exampleTa}</p>
+          <button onClick={() => speakTamil(word.exampleTa)}
+            style={{ ...btn('ghost'), width: 'auto', padding: '7px 16px', fontSize: '0.8rem',
+              marginTop: 12, color: T.gold, borderColor: '#f59e0b40' }}>🎙 Tamil Audio</button>
+        </div>
+      )}
+
+      <div style={{ ...glass(T.accent2), padding: '14px 18px', marginBottom: 18,
+        display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ fontSize: '1.3rem' }}>💡</span>
+        <span style={{ color: T.accent2, fontSize: '0.88rem', lineHeight: 1.5 }}>
+          Notice <strong style={{ color: T.accent3 }}>{word.wordName}</strong> in the sentence.
+          {word.sentencePattern ? ` Pattern: ${word.sentencePattern}` : ''}
+        </span>
+      </div>
+
+      <button onClick={onNext} style={btn('primary')}>Got it! Continue →</button>
+    </motion.div>
+  )
+}
+
+// ── Step 4: Fill in the Blank MCQ ────────────────────────────────────────────
 
 function MCQStep({ q, lang, onCorrect, onWrong }) {
   const [selected, setSelected] = useState(null)
-  const [checked,  setChecked]  = useState(false)
-  const [timer,    setTimer]    = useState(null)
+  const [checked, setChecked] = useState(false)
 
   useEffect(() => { setTimeout(() => speak(q.questionText), 400) }, [q])
 
@@ -239,64 +272,58 @@ function MCQStep({ q, lang, onCorrect, onWrong }) {
     setChecked(true)
     if (selected.isCorrect) {
       speak('Correct! Well done.')
-      const t = setTimeout(onCorrect, 2500)
-      setTimer(t)
+      setTimeout(onCorrect, 2000)
     } else {
-      speak('Not quite. Try again next time.')
-      const t = setTimeout(onWrong, 3000)
-      setTimer(t)
+      speak('Not quite right. The correct answer is shown.')
+      setTimeout(onWrong, 3000)
     }
   }
 
-  useEffect(() => () => { if (timer) clearTimeout(timer) }, [timer])
-
-  const explanation = checked
-    ? selected?.isCorrect
-      ? `✅ Correct! "${q.options?.find(o => o.isCorrect)?.optionText}" is the right answer.`
-      : `❌ "${q.options?.find(o => o.isCorrect)?.optionText}" was correct.`
-    : null
+  const correctOpt = q.options?.find(o => o.isCorrect)
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-      <div style={{ textAlign: 'center', marginBottom: 16 }}>
-        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: T.accent2, letterSpacing: 3, textTransform: 'uppercase' }}>Quiz</span>
-      </div>
-      <div style={{ ...glass(T.accent2, true), padding: '22px 24px', marginBottom: 20 }}>
-        <p style={{ color: T.text, fontSize: '1.05rem', fontWeight: 600, lineHeight: 1.55, margin: 0 }}>
+      <StepLabel text="Fill in the Blank" color={T.accent2} />
+
+      <div style={{ ...glass(T.accent2, true), padding: '24px 26px', marginBottom: 20 }}>
+        <p style={{ color: T.text, fontSize: '1.1rem', fontWeight: 600, lineHeight: 1.6, margin: '0 0 10px' }}>
           {q.questionText}
         </p>
         <button onClick={() => speak(q.questionText)}
-          style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: '0.8rem', marginTop: 8 }}>
+          style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: '0.8rem' }}>
           🔊 Hear question
         </button>
       </div>
 
-      {/* Options */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
-        {q.options?.map(opt => {
-          let bg = 'rgba(255,255,255,0.04)'
-          let border = 'rgba(255,255,255,0.1)'
-          let color = T.text
-          if (selected?.optionId === opt.optionId && !checked) { bg = 'rgba(56,189,248,0.12)'; border = T.accent1; color = T.accent1 }
-          if (checked && opt.isCorrect)  { bg = 'rgba(52,211,153,0.15)'; border = T.accent3; color = T.accent3 }
-          if (checked && selected?.optionId === opt.optionId && !opt.isCorrect) { bg = 'rgba(248,113,113,0.15)'; border = T.danger; color = T.danger }
+        {q.options?.map((opt, i) => {
+          const label = ['A','B','C','D'][i]
+          let border = 'rgba(255,255,255,0.1)', bg = 'rgba(255,255,255,0.04)', color = T.text
+          if (selected?.optionId === opt.optionId && !checked) { bg='rgba(129,140,248,0.15)'; border=T.accent2; color=T.accent2 }
+          if (checked && opt.isCorrect) { bg='rgba(52,211,153,0.15)'; border=T.accent3; color=T.accent3 }
+          if (checked && selected?.optionId === opt.optionId && !opt.isCorrect) { bg='rgba(248,113,113,0.15)'; border=T.danger; color=T.danger }
           return (
-            <button key={opt.optionId} disabled={checked}
-              onClick={() => setSelected(opt)}
-              style={{ padding: '14px 20px', borderRadius: 14, border: `2px solid ${border}`,
-                background: bg, color, fontWeight: 600, fontSize: '0.95rem',
-                textAlign: 'left', cursor: checked ? 'default' : 'pointer', transition: 'all 0.15s' }}>
+            <button key={opt.optionId} disabled={checked} onClick={() => setSelected(opt)}
+              style={{ padding: '13px 20px', borderRadius: 14, border: `2px solid ${border}`,
+                background: bg, color, fontWeight: 600, fontSize: '0.95rem', textAlign: 'left',
+                cursor: checked ? 'default' : 'pointer', transition: 'all 0.15s',
+                display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ width: 28, height: 28, borderRadius: '50%', background: `${border}20`,
+                border: `1px solid ${border}`, display: 'flex', alignItems: 'center',
+                justifyContent: 'center', fontSize: '0.78rem', fontWeight: 800, flexShrink: 0 }}>
+                {checked && opt.isCorrect ? '✓' : checked && selected?.optionId === opt.optionId && !opt.isCorrect ? '✗' : label}
+              </span>
               {opt.optionText}
             </button>
           )
         })}
       </div>
 
-      {explanation && (
+      {checked && (
         <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-          style={{ ...glass(selected?.isCorrect ? T.accent3 : T.danger), padding: '14px 18px', marginBottom: 16,
-            color: selected?.isCorrect ? T.accent3 : T.danger, fontSize: '0.9rem', textAlign: 'center' }}>
-          {explanation}
+          style={{ ...glass(selected?.isCorrect ? T.accent3 : T.danger), padding: '14px 18px',
+            marginBottom: 16, color: selected?.isCorrect ? T.accent3 : T.danger, fontSize: '0.9rem', textAlign: 'center' }}>
+          {selected?.isCorrect ? '✅ Correct! Great job!' : `❌ Correct answer: "${correctOpt?.optionText}"`}
         </motion.div>
       )}
 
@@ -310,74 +337,84 @@ function MCQStep({ q, lang, onCorrect, onWrong }) {
   )
 }
 
-function ArrangeStep({ sentence, lang, onCorrect, onWrong, onTamilSpeak }) {
+// ── Step 5a: Arrange Sentence ──────────────────────────────────────────────────
+
+function ArrangeStep({ sentence, lang, onCorrect, onWrong }) {
   const words = sentence.correctAnswer?.split(' ').filter(Boolean) ?? []
-  const [bank,    setBank]    = useState(() => shuffle(words.map((w, i) => ({ id: i, text: w }))))
-  const [chosen,  setChosen]  = useState([])
-  const [result,  setResult]  = useState(null)
+  const [bank, setBank] = useState(() => shuffle(words.map((w, i) => ({ id: i, text: w }))))
+  const [chosen, setChosen] = useState([])
+  const [result, setResult] = useState(null)
 
   useEffect(() => {
     setBank(shuffle(words.map((w, i) => ({ id: i, text: w }))))
-    setChosen([])
-    setResult(null)
+    setChosen([]); setResult(null)
   }, [sentence])
 
-  const pick = (item) => { setBank(b => b.filter(x => x.id !== item.id)); setChosen(c => [...c, item]) }
-  const put  = (item) => { setChosen(c => c.filter(x => x.id !== item.id)); setBank(b => [...b, item]) }
-  const reset = () => { setBank(shuffle(words.map((w, i) => ({ id: i, text: w })))); setChosen([]); setResult(null) }
+  const pick = item => { setBank(b => b.filter(x => x.id !== item.id)); setChosen(c => [...c, item]) }
+  const put  = item => { setChosen(c => c.filter(x => x.id !== item.id)); setBank(b => [...b, item]) }
+  const reset = () => {
+    setBank(shuffle(words.map((w, i) => ({ id: i, text: w }))))
+    setChosen([]); setResult(null)
+  }
 
   const check = () => {
     const ans = chosen.map(x => x.text).join(' ')
     if (normalizeText(ans) === normalizeText(sentence.correctAnswer)) {
-      speak('Perfect sentence!'); setResult('correct'); setTimeout(onCorrect, 2000)
+      speak('Perfect! You arranged it correctly!')
+      setResult('correct')
+      setTimeout(onCorrect, 1800)
     } else {
-      speak('Not quite right.'); setResult('wrong'); setTimeout(onWrong, 2500)
+      speak('Not quite right. The correct sentence is shown.')
+      setResult('wrong')
+      setTimeout(onWrong, 2800)
     }
   }
 
-  const WordTile = ({ item, onClick, color }) => (
-    <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.96 }}
-      onClick={() => onClick(item)}
+  const Tile = ({ item, onClick, color }) => (
+    <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.96 }} onClick={() => onClick(item)}
       style={{ padding: '9px 16px', borderRadius: 10, border: `1.5px solid ${color}40`,
-        background: `${color}10`, color, fontWeight: 600, fontSize: '0.9rem',
-        cursor: 'pointer', transition: 'all 0.12s', whiteSpace: 'nowrap' }}>
+        background: `${color}10`, color, fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
       {item.text}
     </motion.button>
   )
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-      <div style={{ textAlign: 'center', marginBottom: 16 }}>
-        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: T.gold, letterSpacing: 3, textTransform: 'uppercase' }}>Arrange</span>
-      </div>
-      <HintPanel pattern={sentence.sentencePattern || sentence.hintText} />
+      <StepLabel text="Arrange the Sentence" color={T.gold} />
 
-      {/* Chosen area */}
+      {(sentence.sentencePattern || sentence.hintText) && (
+        <div style={{ ...glass(T.accent2), padding: '10px 18px', marginBottom: 14, textAlign: 'center',
+          fontFamily: 'monospace', color: T.accent2, fontSize: '0.85rem' }}>
+          📐 Pattern: {sentence.sentencePattern || sentence.hintText}
+        </div>
+      )}
+
       <div style={{ ...glass(result === 'correct' ? T.accent3 : result === 'wrong' ? T.danger : T.accent1),
         padding: '16px 18px', marginBottom: 14, minHeight: 64,
         display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-start' }}>
         {chosen.length === 0
           ? <span style={{ color: T.muted, fontSize: '0.85rem', fontStyle: 'italic' }}>Tap words below to build the sentence…</span>
-          : chosen.map(item => <WordTile key={item.id} item={item} onClick={put} color={
-              result === 'correct' ? T.accent3 : result === 'wrong' ? T.danger : T.accent1} />)
+          : chosen.map(item => <Tile key={item.id} item={item} onClick={put}
+              color={result === 'correct' ? T.accent3 : result === 'wrong' ? T.danger : T.accent1} />)
         }
       </div>
 
-      {/* Word bank */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 18 }}>
-        {bank.map(item => <WordTile key={item.id} item={item} onClick={pick} color={T.accent2} />)}
+        {bank.map(item => <Tile key={item.id} item={item} onClick={pick} color={T.accent2} />)}
       </div>
 
       {result === 'wrong' && (
-        <div style={{ color: T.danger, fontSize: '0.88rem', textAlign: 'center', marginBottom: 12 }}>
-          Correct: <em style={{ color: T.text }}>{sentence.correctAnswer}</em>
+        <div style={{ color: T.danger, fontSize: '0.88rem', textAlign: 'center', marginBottom: 14 }}>
+          Correct: <em style={{ color: T.text, fontWeight: 600 }}>"{sentence.correctAnswer}"</em>
         </div>
       )}
 
       <div style={{ display: 'flex', gap: 10 }}>
-        <button onClick={reset} style={{ ...btn('ghost'), flex: '0 0 auto', width: 'auto', padding: '12px 20px' }}>↺ Reset</button>
-        <button onClick={() => speakWordByWord(sentence.correctAnswer)} style={{ ...btn('ghost'), flex: '0 0 auto', width: 'auto', padding: '12px 16px' }}>💡</button>
-        <button onClick={check} disabled={chosen.length === 0 || result}
+        <button onClick={reset}
+          style={{ ...btn('ghost'), flex: '0 0 auto', width: 'auto', padding: '12px 20px' }}>↺ Reset</button>
+        <button onClick={() => speak(sentence.correctAnswer)}
+          style={{ ...btn('ghost'), flex: '0 0 auto', width: 'auto', padding: '12px 16px' }}>🔊</button>
+        <button onClick={check} disabled={chosen.length === 0 || !!result}
           style={{ ...btn('primary'), flex: 1, opacity: chosen.length === 0 || result ? 0.45 : 1 }}>
           ✓ Check
         </button>
@@ -386,200 +423,361 @@ function ArrangeStep({ sentence, lang, onCorrect, onWrong, onTamilSpeak }) {
   )
 }
 
-function VoiceStep({ sentence, lang, onPass, onFail, onTamilSpeak }) {
-  const [phase,  setPhase]  = useState('idle')   // idle | listening | done
+// ── Step 5b: Read Aloud ───────────────────────────────────────────────────────
+
+function ReadStep({ sentence, lang, onPass, onSkip }) {
+  const text = sentence.correctAnswer || sentence.sentenceText || ''
+  const [phase, setPhase] = useState('idle')
   const [result, setResult] = useState(null)
-  const [diff,   setDiff]   = useState(null)
-  const [msg,    setMsg]    = useState('')
+  const [attempts, setAttempts] = useState(0)
+  const [msg, setMsg] = useState('')
+  const [diff, setDiff] = useState(null)
+  const MAX_ATTEMPTS = 3
 
   const go = async () => {
-    setPhase('listening'); setMsg('Listening…'); setDiff(null); setResult(null)
+    if (phase === 'listening') return
+    setPhase('listening'); setMsg('Listening… Speak now!'); setDiff(null); setResult(null)
     try {
       const transcript = await listen()
-      const ok = matchVoice(transcript, sentence.sentenceText)
-      setDiff(diffWords(transcript, sentence.sentenceText))
+      const n1 = normalizeText(transcript)
+      const n2 = normalizeText(text)
+      const words2 = n2.split(' ').filter(Boolean)
+      const ok = n1 === n2 || n1.includes(n2) ||
+        words2.filter(w => n1.includes(w)).length >= Math.ceil(words2.length * 0.7)
+      setDiff(diffWords(transcript, text))
       setResult(ok ? 'pass' : 'fail')
       setPhase('done')
-      if (ok) { speak('Excellent! Great pronunciation!'); setTimeout(onPass, 2000) }
-      else    { speak('Close! Review the highlighted words.') }
-      setMsg(ok ? 'Excellent!' : `You said: "${transcript}"`)
+      setAttempts(a => a + 1)
+      if (ok) {
+        speak('Excellent pronunciation!')
+        setTimeout(onPass, 1800)
+      } else {
+        speak('Good try! Listen and speak again.')
+        setMsg(`You said: "${transcript}"`)
+      }
     } catch (e) {
       setPhase('idle')
-      setMsg(e.message || 'Could not hear you. Try again.')
+      setMsg(e.message || 'Could not hear. Please try again.')
     }
   }
 
+  const tryAgain = () => { setPhase('idle'); setResult(null); setDiff(null); setMsg('') }
+
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-      <div style={{ textAlign: 'center', marginBottom: 16 }}>
-        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: T.danger, letterSpacing: 3, textTransform: 'uppercase' }}>Speak</span>
-      </div>
-      <div style={{ ...glass(T.accent1, true), padding: '24px 28px', marginBottom: 18, textAlign: 'center' }}>
-        <p style={{ color: T.muted, fontSize: '0.8rem', marginBottom: 8, letterSpacing: 1 }}>READ ALOUD</p>
-        <p style={{ color: T.text, fontSize: '1.12rem', fontWeight: 600, lineHeight: 1.6 }}>
-          {sentence.sentenceText}
+      <StepLabel text="Read Aloud" color={T.danger} />
+
+      <div style={{ ...glass(T.accent1, true), padding: '28px 28px', marginBottom: 18, textAlign: 'center' }}>
+        <div style={{ fontSize: '0.7rem', color: T.muted, letterSpacing: 2, marginBottom: 14 }}>SAY THIS SENTENCE</div>
+        <p style={{ color: T.text, fontSize: '1.25rem', fontWeight: 700, lineHeight: 1.6, marginBottom: 16, margin: '0 0 16px' }}>
+          {text}
         </p>
-        {lang === 'ta' && sentence.translationTa &&
-          <p style={{ color: T.gold, fontSize: '0.88rem', marginTop: 8 }}>{sentence.translationTa}</p>}
-        <SpeakRow text={sentence.sentenceText} onTamilSpeak={onTamilSpeak} />
+        {lang === 'ta' && sentence.translationTa && (
+          <p style={{ color: T.gold, fontSize: '0.9rem', marginBottom: 12 }}>{sentence.translationTa}</p>
+        )}
+        <SpeakRow text={text} onTamil={sentence.translationTa ? () => speakTamil(sentence.translationTa) : null} />
       </div>
 
-      {/* Mic button */}
       <div style={{ textAlign: 'center', marginBottom: 20 }}>
         <motion.button
-          onClick={phase === 'idle' ? go : undefined}
-          animate={phase === 'listening' ? { scale: [1, 1.1, 1], boxShadow: ['0 0 0 0 rgba(248,113,113,0)', '0 0 0 18px rgba(248,113,113,0.15)', '0 0 0 0 rgba(248,113,113,0)'] } : {}}
+          onClick={phase !== 'listening' ? go : undefined}
+          animate={phase === 'listening' ? { scale: [1,1.12,1], boxShadow: ['0 0 0 0 rgba(248,113,113,0)','0 0 0 18px rgba(248,113,113,0.15)','0 0 0 0 rgba(248,113,113,0)'] } : {}}
           transition={{ duration: 1.2, repeat: phase === 'listening' ? Infinity : 0 }}
-          style={{ width: 88, height: 88, borderRadius: '50%', border: 'none', cursor: phase === 'idle' ? 'pointer' : 'default',
-            fontSize: '2rem', background: phase === 'listening'
-              ? 'linear-gradient(135deg,#f87171,#dc2626)'
+          style={{ width: 90, height: 90, borderRadius: '50%', border: 'none',
+            cursor: phase === 'listening' ? 'default' : 'pointer', fontSize: '2rem',
+            background: phase === 'listening' ? 'linear-gradient(135deg,#f87171,#dc2626)'
               : result === 'pass' ? 'linear-gradient(135deg,#34d399,#059669)'
               : 'linear-gradient(135deg,#38bdf8,#818cf8)',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.4)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
           {phase === 'listening' ? '⏸' : result === 'pass' ? '✓' : '🎙'}
         </motion.button>
         {phase === 'idle' && !result && (
           <p style={{ color: T.muted, fontSize: '0.82rem', marginTop: 10 }}>Tap mic to speak</p>
         )}
+        {phase === 'listening' && (
+          <p style={{ color: T.danger, fontSize: '0.85rem', marginTop: 10, fontWeight: 600 }}>Recording… speak clearly!</p>
+        )}
       </div>
 
-      {msg && <p style={{ textAlign: 'center', color: result === 'pass' ? T.accent3 : T.muted, fontSize: '0.9rem', marginBottom: 12 }}>{msg}</p>}
-      {diff && result === 'fail' && <WordByWordDiff diff={diff} />}
+      {msg && <p style={{ textAlign: 'center', color: result === 'pass' ? T.accent3 : T.muted, fontSize: '0.9rem', marginBottom: 10 }}>{msg}</p>}
+
+      {diff && result === 'fail' && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 10px', justifyContent: 'center', marginBottom: 14 }}>
+          {diff.map((d, i) => (
+            <span key={i} style={{ padding: '4px 10px', borderRadius: 8, fontSize: '0.88rem', fontWeight: 600,
+              background: d.correct ? 'rgba(52,211,153,0.15)' : 'rgba(248,113,113,0.15)',
+              color: d.correct ? T.accent3 : T.danger,
+              border: `1px solid ${d.correct ? T.accent3 : T.danger}40` }}>
+              {d.correct ? '✓' : '✗'} {d.word}
+            </span>
+          ))}
+        </div>
+      )}
 
       {result === 'fail' && (
-        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-          <button onClick={go} style={btn('outline')}>🔁 Try Again</button>
-          <button onClick={onFail} style={{ ...btn('ghost'), color: T.muted }}>Skip →</button>
+        <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+          {attempts < MAX_ATTEMPTS ? (
+            <button onClick={tryAgain} style={btn('outline')}>
+              🔁 Try Again ({MAX_ATTEMPTS - attempts} left)
+            </button>
+          ) : (
+            <button onClick={onSkip} style={{ ...btn('ghost'), color: T.muted }}>
+              Skip for now →
+            </button>
+          )}
         </div>
       )}
     </motion.div>
   )
 }
 
-function CompletionScreen({ xp, onDone }) {
-  useEffect(() => { speak('Congratulations! Lesson complete. Amazing work!') }, [])
+// ── Retry Banner ──────────────────────────────────────────────────────────────
+
+function RetryBanner({ count, onStart }) {
+  useEffect(() => { speak(`You had ${count} mistake${count > 1 ? 's' : ''}. Let us practice them again.`) }, [])
   return (
-    <motion.div initial={{ opacity: 0, scale: 0.88 }} animate={{ opacity: 1, scale: 1 }}
-      style={{ ...glass(T.gold, true), padding: '48px 32px', textAlign: 'center', maxWidth: 480, margin: '0 auto' }}>
-      <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 0.6, delay: 0.2 }}
-        style={{ fontSize: '4rem', marginBottom: 20 }}>🏆</motion.div>
-      <h2 style={{ fontSize: '2rem', fontWeight: 900, color: T.gold, marginBottom: 8 }}>Lesson Complete!</h2>
-      <p style={{ color: T.muted, marginBottom: 24, fontSize: '0.95rem' }}>You earned <span style={{ color: T.gold, fontWeight: 800 }}>+{xp} XP</span> today</p>
-      <button onClick={onDone} style={btn('gold')}>Back to Lessons</button>
+    <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+      style={{ ...glass(T.orange, true), padding: '48px 36px', textAlign: 'center', maxWidth: 480, margin: '0 auto' }}>
+      <div style={{ fontSize: '4rem', marginBottom: 20 }}>🔄</div>
+      <h2 style={{ fontSize: '1.9rem', fontWeight: 900, color: T.orange, marginBottom: 14 }}>Practice Mistakes!</h2>
+      <p style={{ color: T.muted, fontSize: '0.95rem', lineHeight: 1.6, marginBottom: 32 }}>
+        You had <span style={{ color: T.orange, fontWeight: 800 }}>{count} mistake{count > 1 ? 's' : ''}</span>.
+        Let's go through them again to complete the lesson.
+      </p>
+      <button onClick={onStart} style={btn('orange')}>▶ Practice Again</button>
     </motion.div>
   )
 }
 
-// ── Main component ─────────────────────────────────────────────────────────────
+// ── Completion ────────────────────────────────────────────────────────────────
+
+function CompletionScreen({ xp, perfect, onDone }) {
+  useEffect(() => {
+    speak(perfect
+      ? 'Perfect score! No mistakes! You are amazing!'
+      : 'Lesson complete! Great work! You practiced everything!')
+  }, [])
+
+  return (
+    <motion.div initial={{ opacity: 0, scale: 0.88 }} animate={{ opacity: 1, scale: 1 }}
+      style={{ ...glass(T.gold, true), padding: '52px 36px', textAlign: 'center', maxWidth: 480, margin: '0 auto' }}>
+      <motion.div animate={{ rotate: [0,10,-10,0] }} transition={{ duration: 0.6, delay: 0.3 }}
+        style={{ fontSize: '4.5rem', marginBottom: 20 }}>
+        {perfect ? '🏆' : '🎯'}
+      </motion.div>
+      <h2 style={{ fontSize: '2.2rem', fontWeight: 900, color: T.gold, marginBottom: 10 }}>Lesson Complete!</h2>
+      {perfect && (
+        <div style={{ background: 'rgba(251,191,36,0.1)', borderRadius: 10, padding: '8px 20px',
+          color: T.gold, fontWeight: 700, fontSize: '0.9rem', marginBottom: 16 }}>
+          ⭐ Perfect Score — No Mistakes!
+        </div>
+      )}
+      <p style={{ color: T.muted, fontSize: '0.95rem', marginBottom: 32 }}>
+        You earned <span style={{ color: T.gold, fontWeight: 800 }}>+{xp} XP</span>!
+      </p>
+      <button onClick={onDone} style={btn('gold')}>← Back to Lessons</button>
+    </motion.div>
+  )
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
 
 export default function LessonPlay() {
   const { lessonId } = useParams()
-  const navigate     = useNavigate()
-  const { user }     = useAuth()
+  const navigate = useNavigate()
+  const { state: routeState } = useLocation()
+  const { user } = useAuth()
 
-  const [loading,  setLoading]  = useState(true)
-  const [queue,    setQueue]    = useState([])
-  const [cursor,   setCursor]   = useState(0)
-  const [hearts,   setHearts]   = useState(3)
-  const [xp,       setXp]       = useState(0)
-  const [lang,     setLang]     = useState('en')
-  const [done,     setDone]     = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [lessonInfo, setLessonInfo] = useState({ name: '', description: '' })
+  const [mainQueue, setMainQueue] = useState([])
+  const [retryQueue, setRetryQueue] = useState([])
+
+  const [phase, setPhase] = useState('main') // main | retry_banner | retry | complete
+  const [cursor, setCursor] = useState(0)
+  const [retryCursor, setRetryCursor] = useState(0)
+  const [wrongItems, setWrongItems] = useState([])
+
+  const [hearts, setHearts] = useState(3)
+  const [xp, setXp] = useState(0)
+  const [lang, setLang] = useState('en')
+  const [perfect, setPerfect] = useState(true)
 
   useEffect(() => {
     const load = async () => {
-      const [wc, mcq, arr, read] = await Promise.all([
+      const [wc, mcq, arr] = await Promise.all([
         getWordContent(lessonId, LANG).then(r => r.data ?? []).catch(() => []),
         getMeaningQuestions(lessonId, LANG).then(r => r.data ?? []).catch(() => []),
         getArrangeSentences(lessonId, LANG).then(r => r.data ?? []).catch(() => []),
-        getReadingSentences(lessonId, LANG).then(r => r.data ?? []).catch(() => []),
       ])
 
+      // Get lesson name from route state or fetch lessons list
+      let name = routeState?.lessonName || `Lesson ${lessonId}`
+      let desc = routeState?.description || 'Master this topic step by step'
+
+      if (!routeState?.lessonName) {
+        try {
+          const res = await getLessons(LANG)
+          const found = (res.data ?? []).find(l => l.lessonID == lessonId)
+          if (found) { name = found.lessonName; desc = found.description || desc }
+        } catch {}
+      }
+
+      setLessonInfo({ name, description: desc })
+
       const q = [{ type: 'intro' }]
-      wc.slice(0, 5).forEach(w => { q.push({ type: 'definition', data: w }); q.push({ type: 'example', data: w }) })
+
+      // Meaning + Example for each word content
+      wc.slice(0, 5).forEach(w => {
+        q.push({ type: 'meaning', data: w })
+        q.push({ type: 'example', data: w })
+      })
+
+      // Fill in blank MCQ
       shuffle(mcq).slice(0, MAX_MCQ).forEach(m => q.push({ type: 'mcq', data: m }))
-      shuffle(arr).slice(0, MAX_ARR).forEach(a => q.push({ type: 'arrange', data: a }))
-      read.slice(0, 3).forEach(r => q.push({ type: 'voice', data: r }))
-      q.push({ type: 'done' })
-      setQueue(q)
+
+      // Arrange + Read aloud
+      shuffle(arr).slice(0, MAX_ARR).forEach(a => {
+        q.push({ type: 'arrange', data: a })
+        q.push({ type: 'read', data: a })
+      })
+
+      setMainQueue(q)
       setLoading(false)
     }
     load()
   }, [lessonId])
 
-  const advance = () => setCursor(c => c + 1)
-  const loseHeart = () => { setHearts(h => Math.max(0, h - 1)); advance() }
-  const gainXp = (pts) => setXp(x => x + pts)
+  const advanceMain = () => {
+    if (cursor + 1 >= mainQueue.length) {
+      if (wrongItems.length > 0) {
+        setPhase('retry_banner')
+      } else {
+        setPhase('complete')
+      }
+    } else {
+      setCursor(c => c + 1)
+    }
+  }
+
+  const advanceRetry = () => {
+    if (retryCursor + 1 >= retryQueue.length) {
+      setPhase('complete')
+    } else {
+      setRetryCursor(c => c + 1)
+    }
+  }
+
+  const addWrong = (step) => {
+    setPerfect(false)
+    setHearts(h => Math.max(0, h - 1))
+    const items = [step]
+    if (step.type === 'arrange') {
+      items.push({ type: 'read', data: step.data })
+    }
+    setWrongItems(w => [...w, ...items])
+  }
+
+  const startRetry = () => {
+    setRetryQueue([...wrongItems])
+    setWrongItems([])
+    setRetryCursor(0)
+    setPhase('retry')
+  }
+
+  const gainXp = pts => setXp(x => x + pts)
 
   useEffect(() => {
-    if (done) {
+    if (phase === 'complete') {
       updateStreak({ userId: user?.id || 0, xpEarned: xp }).catch(() => {})
     }
-  }, [done])
+  }, [phase])
 
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <AuraBg />
         <div style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
-          <Gem animate size={56} />
-          <p style={{ color: T.muted, marginTop: 16 }}>Loading lesson…</p>
+          <motion.div animate={{ scale: [1,1.1,1] }} transition={{ duration: 2, repeat: Infinity }}
+            style={{ fontSize: 56, marginBottom: 16 }}>📖</motion.div>
+          <p style={{ color: T.muted }}>Loading lesson…</p>
         </div>
       </div>
     )
   }
 
-  const step = queue[cursor]
-  const total = queue.length
+  const isRetry = phase === 'retry'
+  const currentStep = isRetry ? retryQueue[retryCursor] : mainQueue[cursor]
+  const currentCursor = isRetry ? retryCursor : cursor
+  const totalSteps = isRetry ? retryQueue.length : mainQueue.length
+  const doNext = isRetry ? advanceRetry : advanceMain
 
-  if (done || step?.type === 'done') {
+  if (phase === 'complete') {
     return (
       <div style={{ minHeight: '100vh', background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
         <AuraBg />
         <div style={{ position: 'relative', zIndex: 1, width: '100%' }}>
-          <CompletionScreen xp={xp} onDone={() => navigate('/lessons')} />
+          <CompletionScreen xp={xp} perfect={perfect} onDone={() => navigate('/lessons')} />
         </div>
       </div>
     )
   }
 
-  const doTamilSpeak = (text) => speakTamil(text)
+  if (phase === 'retry_banner') {
+    return (
+      <div style={{ minHeight: '100vh', background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <AuraBg />
+        <div style={{ position: 'relative', zIndex: 1, width: '100%' }}>
+          <RetryBanner count={wrongItems.length} onStart={startRetry} />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: T.bg, color: T.text, fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
       <AuraBg />
       <div style={{ position: 'relative', zIndex: 1 }}>
-        <TopBar hearts={hearts} xp={xp} step={cursor} total={total} onLang={setLang} lang={lang} onExit={() => navigate('/lessons')} />
+        <TopBar hearts={hearts} xp={xp} step={currentCursor} total={totalSteps}
+          lang={lang} onLang={setLang} onExit={() => navigate('/lessons')} phase={phase} />
+
         <div style={{ maxWidth: 640, margin: '0 auto', padding: '28px 18px 80px' }}>
+          {isRetry && (
+            <div style={{ background: 'rgba(251,146,60,0.1)', border: '1px solid rgba(251,146,60,0.3)',
+              borderRadius: 12, padding: '10px 18px', marginBottom: 20,
+              color: T.orange, fontSize: '0.85rem', textAlign: 'center', fontWeight: 700 }}>
+              🔄 Practice Round — {retryCursor + 1} of {retryQueue.length}
+            </div>
+          )}
           <AnimatePresence mode="wait">
-            <motion.div key={cursor} initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.22 }}>
-              {step?.type === 'intro' && (
-                <IntroStep lessonName={`Lesson ${lessonId}`} onNext={advance} />
+            <motion.div key={`${phase}-${currentCursor}`}
+              initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.22 }}>
+
+              {currentStep?.type === 'intro' && (
+                <IntroStep lessonName={lessonInfo.name} description={lessonInfo.description} onNext={doNext} />
               )}
-              {(step?.type === 'definition' || step?.type === 'example') && step.data?.wordName && (
-                <DefinitionStep word={step.data} lang={lang} onNext={advance} onTamilSpeak={doTamilSpeak} />
+              {currentStep?.type === 'meaning' && (
+                <MeaningStep word={currentStep.data} lang={lang} onNext={doNext} />
               )}
-              {(step?.type === 'definition' || step?.type === 'example') && !step.data?.wordName && (
-                <div style={{ textAlign: 'center', padding: 40 }}>
-                  <p style={{ color: T.muted }}>Loading word content…</p>
-                  <button onClick={advance} style={{ ...btn('ghost'), width: 'auto', marginTop: 16, padding: '10px 24px' }}>Skip →</button>
-                </div>
+              {currentStep?.type === 'example' && (
+                <ExampleStep word={currentStep.data} lang={lang} onNext={doNext} />
               )}
-              {step?.type === 'mcq' && (
-                <MCQStep q={step.data} lang={lang}
-                  onCorrect={() => { gainXp(10); advance() }}
-                  onWrong={() => { loseHeart(); gainXp(2) }} />
+              {currentStep?.type === 'mcq' && (
+                <MCQStep q={currentStep.data} lang={lang}
+                  onCorrect={() => { gainXp(10); doNext() }}
+                  onWrong={() => { addWrong(currentStep); doNext() }} />
               )}
-              {step?.type === 'arrange' && (
-                <ArrangeStep sentence={step.data} lang={lang}
-                  onCorrect={() => { gainXp(15); advance() }}
-                  onWrong={() => { loseHeart(); gainXp(3) }}
-                  onTamilSpeak={doTamilSpeak} />
+              {currentStep?.type === 'arrange' && (
+                <ArrangeStep sentence={currentStep.data} lang={lang}
+                  onCorrect={() => { gainXp(15); doNext() }}
+                  onWrong={() => { addWrong(currentStep); doNext() }} />
               )}
-              {step?.type === 'voice' && (
-                <VoiceStep sentence={step.data} lang={lang}
-                  onPass={() => { gainXp(20); advance() }}
-                  onFail={() => { loseHeart(); advance() }}
-                  onTamilSpeak={doTamilSpeak} />
+              {currentStep?.type === 'read' && (
+                <ReadStep sentence={currentStep.data} lang={lang}
+                  onPass={() => { gainXp(20); doNext() }}
+                  onSkip={doNext} />
               )}
             </motion.div>
           </AnimatePresence>

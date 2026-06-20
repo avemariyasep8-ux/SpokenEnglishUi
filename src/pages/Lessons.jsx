@@ -127,6 +127,7 @@ export default function Lessons() {
 
                     {accessible ? (
                       <Link to={`/lesson/${l.lessonID}/play`}
+                        state={{ lessonName: l.lessonName, description: l.description }}
                         style={{ display: 'block', textAlign: 'center', padding: '11px 20px', borderRadius: 11,
                           background: 'linear-gradient(135deg,#38bdf8,#818cf8)', color: '#fff',
                           textDecoration: 'none', fontWeight: 700, fontSize: '0.88rem' }}>

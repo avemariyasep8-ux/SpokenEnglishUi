@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import API from '../services/api'
+import API, { grantUserAccess } from '../services/api'
 
 const T = {
   bg: '#080c14', card: 'rgba(12,20,36,0.97)',
@@ -182,12 +182,27 @@ export default function AdminDashboard() {
                         {u.planname ? `${u.planname} (${u.substatus})` : 'Free'}
                       </td>
                       <td style={{ padding: '10px 12px' }}>
-                        <button onClick={() => toggleUser(u.id)}
-                          style={{ padding: '4px 12px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 700,
-                            background: u.isactive ? 'rgba(248,113,113,0.15)' : 'rgba(52,211,153,0.15)',
-                            color: u.isactive ? T.danger : T.success }}>
-                          {u.isactive ? 'Ban' : 'Unban'}
-                        </button>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <button onClick={() => toggleUser(u.id)}
+                            style={{ padding: '4px 10px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 700,
+                              background: u.isactive ? 'rgba(248,113,113,0.15)' : 'rgba(52,211,153,0.15)',
+                              color: u.isactive ? T.danger : T.success }}>
+                            {u.isactive ? 'Ban' : 'Unban'}
+                          </button>
+                          {u.role !== 'Admin' && (
+                            <button onClick={async () => {
+                              const grant = u.role !== 'Premium'
+                              await grantUserAccess(u.id, grant)
+                              setUsers(arr => arr.map(x => x.id === u.id ? { ...x, role: grant ? 'Premium' : 'User' } : x))
+                              flash(grant ? `Premium access granted to ${u.email}` : `Premium access revoked from ${u.email}`)
+                            }}
+                              style={{ padding: '4px 10px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 700,
+                                background: u.role === 'Premium' ? 'rgba(251,191,36,0.25)' : 'rgba(251,191,36,0.1)',
+                                color: '#fbbf24' }}>
+                              {u.role === 'Premium' ? '👑 Revoke' : '👑 Grant'}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
