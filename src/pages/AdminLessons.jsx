@@ -334,12 +334,9 @@ export default function AdminLessons() {
                         </td>
                         <td style={{ padding: '12px 14px' }}>
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                            <Link to={`/admin/meaning/${l.lessonID}`}
-                              style={{ ...btn(T.accent), textDecoration: 'none', padding: '6px 12px' }}
-                              title="Manage MCQ">❓</Link>
-                            <Link to={`/admin/arrange/${l.lessonID}`}
-                              style={{ ...btn(T.orange), textDecoration: 'none', padding: '6px 12px' }}
-                              title="Manage Arrange">🧩</Link>
+                            <Link to={`/admin/lesson/${l.lessonID}/content`}
+                              style={{ ...btn(T.success), textDecoration: 'none', padding: '6px 14px' }}
+                              title="Manage all content">⚙ Manage</Link>
                             <button onClick={() => openEdit(l)} style={btn(T.purple)}>Edit</button>
                             <button onClick={() => handleDelete(l.lessonID)}
                               style={btn(T.danger)}>Del</button>

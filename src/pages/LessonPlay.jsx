@@ -340,13 +340,18 @@ function MCQStep({ q, lang, onCorrect, onWrong }) {
 // ── Step 5a: Arrange Sentence ──────────────────────────────────────────────────
 
 function ArrangeStep({ sentence, lang, onCorrect, onWrong }) {
-  const words = sentence.correctAnswer?.split(' ').filter(Boolean) ?? []
-  const [bank, setBank] = useState(() => shuffle(words.map((w, i) => ({ id: i, text: w }))))
+  const correctText = sentence.correctSentence || sentence.correctAnswer || ''
+  // Use pre-shuffled words from API if available, else split sentence
+  const apiWords = sentence.words?.length
+    ? sentence.words.map((w, i) => ({ id: w.wordID ?? i, text: w.wordText }))
+    : correctText.split(' ').filter(Boolean).map((w, i) => ({ id: i, text: w }))
+
+  const [bank, setBank] = useState(() => shuffle(apiWords))
   const [chosen, setChosen] = useState([])
   const [result, setResult] = useState(null)
 
   useEffect(() => {
-    setBank(shuffle(words.map((w, i) => ({ id: i, text: w }))))
+    setBank(shuffle(apiWords))
     setChosen([]); setResult(null)
   }, [sentence])
 
@@ -359,7 +364,7 @@ function ArrangeStep({ sentence, lang, onCorrect, onWrong }) {
 
   const check = () => {
     const ans = chosen.map(x => x.text).join(' ')
-    if (normalizeText(ans) === normalizeText(sentence.correctAnswer)) {
+    if (normalizeText(ans) === normalizeText(correctText)) {
       speak('Perfect! You arranged it correctly!')
       setResult('correct')
       setTimeout(onCorrect, 1800)
@@ -369,6 +374,9 @@ function ArrangeStep({ sentence, lang, onCorrect, onWrong }) {
       setTimeout(onWrong, 2800)
     }
   }
+
+  // Also expose correctText for parent ReadStep
+  sentence._correctText = correctText
 
   const Tile = ({ item, onClick, color }) => (
     <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.96 }} onClick={() => onClick(item)}
@@ -426,7 +434,7 @@ function ArrangeStep({ sentence, lang, onCorrect, onWrong }) {
 // ── Step 5b: Read Aloud ───────────────────────────────────────────────────────
 
 function ReadStep({ sentence, lang, onPass, onSkip }) {
-  const text = sentence.correctAnswer || sentence.sentenceText || ''
+  const text = sentence.correctSentence || sentence.correctAnswer || sentence.sentenceText || ''
   const [phase, setPhase] = useState('idle')
   const [result, setResult] = useState(null)
   const [attempts, setAttempts] = useState(0)

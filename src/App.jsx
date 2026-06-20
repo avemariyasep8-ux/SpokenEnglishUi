@@ -18,6 +18,7 @@ import AdminArrangeSentences from './pages/AdminArrangeSentences'
 import AdminBulkUpload from './pages/AdminBulkUpload'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminAddLesson from './pages/AdminAddLesson'
+import AdminLessonContent from './pages/AdminLessonContent'
 import Subscription from './pages/Subscription'
 
 // ── Private Route Wrapper ────────────────────────────
@@ -82,6 +83,10 @@ export default function App() {
           } />
           <Route path="/admin/bulk" element={
             <PrivateRoute><AdminBulkUpload /></PrivateRoute>
+          } />
+
+          <Route path="/admin/lesson/:lessonId/content" element={
+            <PrivateRoute><AdminLessonContent /></PrivateRoute>
           } />
 
           {/* Fallback & Redirects */}

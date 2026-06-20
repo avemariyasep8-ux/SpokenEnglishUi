@@ -74,8 +74,15 @@ export const getUserProgress = (userId, languageId) =>
   API.get(`/progress/${userId}/${languageId}`)
 
 // ── Word Content (definition/pattern cards) ───────────
-export const getWordContent = (lessonId, languageId) =>
-  API.get(`/wordcontent/${lessonId}/${languageId}`)
+export const getWordContent    = (lessonId, languageId) => API.get(`/wordcontent/${lessonId}/${languageId}`)
+export const addWordContent    = (data) => API.post('/wordcontent', data)
+export const updateWordContent = (id, data) => API.put(`/wordcontent/${id}`, data)
+export const deleteWordContent = (id) => API.delete(`/wordcontent/${id}`)
+
+// ── Arrange CRUD ───────────────────────────────────────
+export const updateArrangeSentence = (data) => API.put('/arrange', data)
+export const addArrangeWord    = (data) => API.post('/arrange/word', data)
+export const deleteArrangeWord = (id)   => API.delete(`/arrange/word/${id}`)
 
 // ── Subscription ──────────────────────────────────────
 export const getSubscriptionPlans   = () => API.get('/subscription/plans')
