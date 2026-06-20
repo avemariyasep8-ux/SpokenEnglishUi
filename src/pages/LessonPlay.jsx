@@ -620,17 +620,18 @@ export default function LessonPlay() {
         getArrangeSentences(lessonId, LANG).then(r => r.data ?? []).catch(() => []),
       ])
 
-      // Get lesson name from route state or fetch lessons list
+      // Always fetch lesson name from API (route state may be absent on direct URL access)
       let name = routeState?.lessonName || `Lesson ${lessonId}`
       let desc = routeState?.description || 'Master this topic step by step'
 
-      if (!routeState?.lessonName) {
-        try {
-          const res = await getLessons(LANG)
-          const found = (res.data ?? []).find(l => l.lessonID == lessonId)
-          if (found) { name = found.lessonName; desc = found.description || desc }
-        } catch {}
-      }
+      try {
+        const res = await getLessons(LANG)
+        const found = (res.data ?? []).find(l => l.lessonID == lessonId || l.lessonId == lessonId)
+        if (found) {
+          name = found.lessonName || found.name || name
+          desc = found.description || desc
+        }
+      } catch {}
 
       setLessonInfo({ name, description: desc })
 
