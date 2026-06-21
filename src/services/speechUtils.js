@@ -36,20 +36,22 @@ function pickEnglishVoice() {
 // Rate 0.78 = deliberately slow & clear for ESL learners
 export const speak = (text, lang = 'en-US', rate = 0.78) => {
   if (!window.speechSynthesis || !text) return
-  window.speechSynthesis.cancel()
 
   const utterance = new SpeechSynthesisUtterance(text)
-  utterance.rate  = rate
-  utterance.pitch = 0.95   // slightly lower = clearer
+  utterance.rate   = rate
+  utterance.pitch  = 0.95
   utterance.volume = 1
-  utterance.lang  = lang
+  utterance.lang   = lang
 
   const doSpeak = () => {
     if (lang.startsWith('en')) {
       const voice = pickEnglishVoice()
       if (voice) utterance.voice = voice
     }
-    window.speechSynthesis.speak(utterance)
+    // Chrome bug: cancel() then immediate speak() is silently dropped.
+    // Wrapping in setTimeout(0) lets the cancel flush before the new utterance queues.
+    window.speechSynthesis.cancel()
+    setTimeout(() => window.speechSynthesis.speak(utterance), 50)
   }
 
   if (getVoices().length === 0) {
@@ -106,32 +108,55 @@ export const speakTamil = async (englishText) => {
   }
 }
 
-// Speech-to-Text — multiple-alternative grading
+// Check if speech recognition is available (Chrome/Edge only)
+export const isSpeechRecognitionSupported = () =>
+  !!(window.SpeechRecognition || window.webkitSpeechRecognition)
+
+// Speech-to-Text — stops TTS first so mic doesn't pick up speaker
 export const listen = (lang = 'en-US') => {
   return new Promise((resolve, reject) => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SpeechRecognition) {
-      reject({ type: 'not-supported', message: 'Speech recognition needs Chrome browser.' })
+      reject({ type: 'not-supported', message: 'Voice input needs Chrome or Edge browser.' })
       return
     }
+
+    // Stop any ongoing TTS so speaker audio doesn't feed into mic
+    if (window.speechSynthesis?.speaking) {
+      window.speechSynthesis.cancel()
+    }
+
     const rec = new SpeechRecognition()
-    rec.lang              = lang
-    rec.interimResults    = false
-    rec.maxAlternatives   = 3
-    rec.continuous        = false
+    rec.lang             = lang
+    rec.interimResults   = false
+    rec.maxAlternatives  = 3
+    rec.continuous       = false
 
-    // Return best alternative transcript
-    rec.onresult = (e) => resolve(e.results[0][0].transcript)
+    let settled = false
+    const settle = (fn) => { if (!settled) { settled = true; fn() } }
 
-    rec.onerror = (e) => {
+    rec.onresult = (e) => settle(() => resolve(e.results[0][0].transcript))
+
+    rec.onerror = (e) => settle(() => {
       const msgs = {
-        'no-speech':      { type: 'no-speech',   message: 'No speech heard — speak closer to mic.' },
-        'not-allowed':    { type: 'permission',   message: 'Microphone blocked — allow it in browser.' },
-        'audio-capture':  { type: 'permission',   message: 'Microphone unavailable.' },
+        'no-speech':     { type: 'no-speech',  message: 'No speech heard — speak closer to mic.' },
+        'not-allowed':   { type: 'permission', message: 'Microphone blocked — tap the lock icon in the address bar and allow mic.' },
+        'audio-capture': { type: 'permission', message: 'No microphone found. Please connect a mic.' },
+        'network':       { type: 'network',    message: 'Network error during voice recognition.' },
+        'aborted':       { type: 'aborted',    message: 'Listening was cancelled.' },
       }
       reject(msgs[e.error] ?? { type: e.error, message: `Voice error: ${e.error}` })
+    })
+
+    rec.onend = () => settle(() =>
+      reject({ type: 'no-speech', message: 'No speech detected. Please try again.' })
+    )
+
+    try {
+      rec.start()
+    } catch (e) {
+      reject({ type: 'error', message: 'Could not start microphone.' })
     }
-    rec.start()
   })
 }
 

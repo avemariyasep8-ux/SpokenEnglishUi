@@ -5,7 +5,7 @@ import {
   getMeaningQuestionsAdmin, getArrangeSentences,
   getWordContent, getLessons, updateStreak
 } from '../services/api'
-import { speak, speakTamil, listen, normalizeText, diffWords } from '../services/speechUtils'
+import { speak, speakTamil, listen, normalizeText, diffWords, isSpeechRecognitionSupported } from '../services/speechUtils'
 import { useAuth } from '../context/AuthContext'
 
 const LANG = 1
@@ -298,12 +298,15 @@ function MCQStep({ q, lang, onCorrect, onWrong }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
         {q.options?.map((opt, i) => {
           const label = ['A','B','C','D'][i]
+          // API returns optionID (capital D) — normalise to handle both casings
+          const oid = opt.optionID ?? opt.optionId ?? i
+          const sid = selected ? (selected.optionID ?? selected.optionId ?? -1) : null
           let border = 'rgba(255,255,255,0.1)', bg = 'rgba(255,255,255,0.04)', color = T.text
-          if (selected?.optionId === opt.optionId && !checked) { bg='rgba(129,140,248,0.15)'; border=T.accent2; color=T.accent2 }
+          if (sid === oid && !checked) { bg='rgba(129,140,248,0.15)'; border=T.accent2; color=T.accent2 }
           if (checked && opt.isCorrect) { bg='rgba(52,211,153,0.15)'; border=T.accent3; color=T.accent3 }
-          if (checked && selected?.optionId === opt.optionId && !opt.isCorrect) { bg='rgba(248,113,113,0.15)'; border=T.danger; color=T.danger }
+          if (checked && sid === oid && !opt.isCorrect) { bg='rgba(248,113,113,0.15)'; border=T.danger; color=T.danger }
           return (
-            <button key={opt.optionId} disabled={checked} onClick={() => setSelected(opt)}
+            <button key={oid} disabled={checked} onClick={() => setSelected(opt)}
               style={{ padding: '13px 20px', borderRadius: 14, border: `2px solid ${border}`,
                 background: bg, color, fontWeight: 600, fontSize: '0.95rem', textAlign: 'left',
                 cursor: checked ? 'default' : 'pointer', transition: 'all 0.15s',
@@ -311,7 +314,7 @@ function MCQStep({ q, lang, onCorrect, onWrong }) {
               <span style={{ width: 28, height: 28, borderRadius: '50%', background: `${border}20`,
                 border: `1px solid ${border}`, display: 'flex', alignItems: 'center',
                 justifyContent: 'center', fontSize: '0.78rem', fontWeight: 800, flexShrink: 0 }}>
-                {checked && opt.isCorrect ? '✓' : checked && selected?.optionId === opt.optionId && !opt.isCorrect ? '✗' : label}
+                {checked && opt.isCorrect ? '✓' : checked && sid === oid && !opt.isCorrect ? '✗' : label}
               </span>
               {opt.optionText}
             </button>
@@ -486,27 +489,37 @@ function ReadStep({ sentence, lang, onPass, onSkip }) {
         <SpeakRow text={text} onTamil={sentence.translationTa ? () => speakTamil(sentence.translationTa) : null} />
       </div>
 
-      <div style={{ textAlign: 'center', marginBottom: 20 }}>
-        <motion.button
-          onClick={phase !== 'listening' ? go : undefined}
-          animate={phase === 'listening' ? { scale: [1,1.12,1], boxShadow: ['0 0 0 0 rgba(248,113,113,0)','0 0 0 18px rgba(248,113,113,0.15)','0 0 0 0 rgba(248,113,113,0)'] } : {}}
-          transition={{ duration: 1.2, repeat: phase === 'listening' ? Infinity : 0 }}
-          style={{ width: 90, height: 90, borderRadius: '50%', border: 'none',
-            cursor: phase === 'listening' ? 'default' : 'pointer', fontSize: '2rem',
-            background: phase === 'listening' ? 'linear-gradient(135deg,#f87171,#dc2626)'
-              : result === 'pass' ? 'linear-gradient(135deg,#34d399,#059669)'
-              : 'linear-gradient(135deg,#38bdf8,#818cf8)',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-          {phase === 'listening' ? '⏸' : result === 'pass' ? '✓' : '🎙'}
-        </motion.button>
-        {phase === 'idle' && !result && (
-          <p style={{ color: T.muted, fontSize: '0.82rem', marginTop: 10 }}>Tap mic to speak</p>
-        )}
-        {phase === 'listening' && (
-          <p style={{ color: T.danger, fontSize: '0.85rem', marginTop: 10, fontWeight: 600 }}>Recording… speak clearly!</p>
-        )}
-      </div>
+      {!isSpeechRecognitionSupported() ? (
+        <div style={{ ...glass(T.orange), padding: '16px 20px', marginBottom: 20, textAlign: 'center' }}>
+          <p style={{ color: T.orange, fontWeight: 700, marginBottom: 6 }}>🎙 Voice input requires Chrome or Edge</p>
+          <p style={{ color: T.muted, fontSize: '0.85rem' }}>Listen to the sentence, practice it, then tap Skip to continue.</p>
+          <button onClick={onSkip} style={{ ...btn('ghost'), width: 'auto', padding: '8px 20px', marginTop: 10 }}>
+            Skip this step →
+          </button>
+        </div>
+      ) : (
+        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+          <motion.button
+            onClick={phase !== 'listening' ? go : undefined}
+            animate={phase === 'listening' ? { scale: [1,1.12,1], boxShadow: ['0 0 0 0 rgba(248,113,113,0)','0 0 0 18px rgba(248,113,113,0.15)','0 0 0 0 rgba(248,113,113,0)'] } : {}}
+            transition={{ duration: 1.2, repeat: phase === 'listening' ? Infinity : 0 }}
+            style={{ width: 90, height: 90, borderRadius: '50%', border: 'none',
+              cursor: phase === 'listening' ? 'default' : 'pointer', fontSize: '2rem',
+              background: phase === 'listening' ? 'linear-gradient(135deg,#f87171,#dc2626)'
+                : result === 'pass' ? 'linear-gradient(135deg,#34d399,#059669)'
+                : 'linear-gradient(135deg,#38bdf8,#818cf8)',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+            {phase === 'listening' ? '⏸' : result === 'pass' ? '✓' : '🎙'}
+          </motion.button>
+          {phase === 'idle' && !result && (
+            <p style={{ color: T.muted, fontSize: '0.82rem', marginTop: 10 }}>Tap mic to speak</p>
+          )}
+          {phase === 'listening' && (
+            <p style={{ color: T.danger, fontSize: '0.85rem', marginTop: 10, fontWeight: 600 }}>Recording… speak clearly!</p>
+          )}
+        </div>
+      )}
 
       {msg && <p style={{ textAlign: 'center', color: result === 'pass' ? T.accent3 : T.muted, fontSize: '0.9rem', marginBottom: 10 }}>{msg}</p>}
 
