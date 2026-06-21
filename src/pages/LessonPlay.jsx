@@ -358,7 +358,7 @@ function ArrangeStep({ sentence, lang, onCorrect, onWrong }) {
   const pick = item => { setBank(b => b.filter(x => x.id !== item.id)); setChosen(c => [...c, item]) }
   const put  = item => { setChosen(c => c.filter(x => x.id !== item.id)); setBank(b => [...b, item]) }
   const reset = () => {
-    setBank(shuffle(words.map((w, i) => ({ id: i, text: w }))))
+    setBank(shuffle([...apiWords]))
     setChosen([]); setResult(null)
   }
 
@@ -413,14 +413,14 @@ function ArrangeStep({ sentence, lang, onCorrect, onWrong }) {
 
       {result === 'wrong' && (
         <div style={{ color: T.danger, fontSize: '0.88rem', textAlign: 'center', marginBottom: 14 }}>
-          Correct: <em style={{ color: T.text, fontWeight: 600 }}>"{sentence.correctAnswer}"</em>
+          Correct: <em style={{ color: T.text, fontWeight: 600 }}>"{correctText}"</em>
         </div>
       )}
 
       <div style={{ display: 'flex', gap: 10 }}>
         <button onClick={reset}
           style={{ ...btn('ghost'), flex: '0 0 auto', width: 'auto', padding: '12px 20px' }}>↺ Reset</button>
-        <button onClick={() => speak(sentence.correctAnswer)}
+        <button onClick={() => speak(correctText)}
           style={{ ...btn('ghost'), flex: '0 0 auto', width: 'auto', padding: '12px 16px' }}>🔊</button>
         <button onClick={check} disabled={chosen.length === 0 || !!result}
           style={{ ...btn('primary'), flex: 1, opacity: chosen.length === 0 || result ? 0.45 : 1 }}>
