@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import API from '../services/api'
+import AdminNav from '../components/AdminNav'
 
 const T = {
   bg: '#080c14', card: 'rgba(12,20,36,0.97)',
@@ -173,13 +174,7 @@ export default function AdminAddLesson() {
         background: 'radial-gradient(ellipse at top left,rgba(56,189,248,0.06),transparent 60%)' }} />
       <div style={{ position: 'relative', zIndex: 1 }}>
 
-        {/* Navbar */}
-        <nav style={{ background: 'rgba(8,12,20,0.92)', backdropFilter: 'blur(14px)',
-          borderBottom: '1px solid rgba(99,179,237,0.1)', padding: '12px 28px',
-          display: 'flex', alignItems: 'center', gap: 16 }}>
-          <Link to="/admin" style={{ color: T.muted, textDecoration: 'none', fontSize: '0.88rem' }}>← Admin</Link>
-          <span style={{ fontWeight: 900, color: T.accent }}>➕ Add New Lesson</span>
-        </nav>
+        <AdminNav activePath="/admin/lessons" />
 
         <div style={{ maxWidth: 780, margin: '0 auto', padding: '28px 20px 80px' }}>
 

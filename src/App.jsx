@@ -28,6 +28,15 @@ function PrivateRoute({ children }) {
   return user ? children : <Navigate to="/login" />
 }
 
+// ── Admin-only Route Wrapper ──────────────────────────
+function AdminRoute({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return <div className="loading-center"><div className="spinner" /></div>
+  if (!user) return <Navigate to="/login" />
+  if (user.role !== 'Admin') return <Navigate to="/dashboard" />
+  return children
+}
+
 export default function App() {
   return (
     <Router>
@@ -71,27 +80,14 @@ export default function App() {
             <PrivateRoute><Subscription /></PrivateRoute>
           } />
 
-          {/* Admin Routes */}
-          <Route path="/admin/lessons" element={
-            <PrivateRoute><AdminLessons /></PrivateRoute>
-          } />
-          <Route path="/admin/meaning/:lessonId" element={
-            <PrivateRoute><AdminMeaningQuestions /></PrivateRoute>
-          } />
-          <Route path="/admin/arrange/:lessonId" element={
-            <PrivateRoute><AdminArrangeSentences /></PrivateRoute>
-          } />
-          <Route path="/admin/bulk" element={
-            <PrivateRoute><AdminBulkUpload /></PrivateRoute>
-          } />
-
-          <Route path="/admin/lesson/:lessonId/content" element={
-            <PrivateRoute><AdminLessonContent /></PrivateRoute>
-          } />
-
-          {/* Fallback & Redirects */}
-          <Route path="/admin" element={<PrivateRoute><AdminDashboard /></PrivateRoute>} />
-          <Route path="/admin/add-lesson" element={<PrivateRoute><AdminAddLesson /></PrivateRoute>} />
+          {/* Admin Routes — only accessible by role=Admin */}
+          <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+          <Route path="/admin/add-lesson" element={<AdminRoute><AdminAddLesson /></AdminRoute>} />
+          <Route path="/admin/lessons" element={<AdminRoute><AdminLessons /></AdminRoute>} />
+          <Route path="/admin/lesson/:lessonId/content" element={<AdminRoute><AdminLessonContent /></AdminRoute>} />
+          <Route path="/admin/meaning/:lessonId" element={<AdminRoute><AdminMeaningQuestions /></AdminRoute>} />
+          <Route path="/admin/arrange/:lessonId" element={<AdminRoute><AdminArrangeSentences /></AdminRoute>} />
+          <Route path="/admin/bulk" element={<AdminRoute><AdminBulkUpload /></AdminRoute>} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </AuthProvider>

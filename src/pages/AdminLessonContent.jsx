@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import AdminNav from '../components/AdminNav'
 import {
   getWordContent, addWordContent, updateWordContent, deleteWordContent,
   getMeaningQuestionsAdmin, addMeaningQuestion, updateMeaningQuestion, deleteMeaningQuestion,
@@ -364,14 +365,7 @@ export default function AdminLessonContent() {
 
   return (
     <div style={{ minHeight: '100vh', background: T.bg, color: T.text, fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
-      <nav style={{ background: 'rgba(8,12,20,0.92)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(99,179,237,0.1)', padding: '12px 28px', display: 'flex', alignItems: 'center', gap: 16 }}>
-        <button onClick={() => navigate('/admin/lessons')} style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: '0.9rem' }}>← Lessons</button>
-        <span style={{ fontWeight: 900, color: T.accent, fontSize: '1.05rem' }}>
-          {lesson ? `Lesson: ${lesson.lessonName ?? lesson.name}` : `Lesson #${lessonId}`}
-        </span>
-        <div style={{ flex: 1 }} />
-        <Link to="/admin" style={{ color: T.muted, fontSize: '0.85rem', textDecoration: 'none' }}>Admin Home</Link>
-      </nav>
+      <AdminNav activePath="/admin/lessons" />
 
       <div style={{ maxWidth: 860, margin: '0 auto', padding: '28px 20px' }}>
         {msg && (

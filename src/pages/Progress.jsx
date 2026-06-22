@@ -39,7 +39,7 @@ export default function Progress() {
             <Link to="/lessons"   className="nav-link">Lessons</Link>
             <Link to="/progress"  className="nav-link active">Progress</Link>
             {user?.role === 'Admin' && (
-              <Link to="/admin/bulk" className="nav-link">Admin</Link>
+              <Link to="/admin" className="nav-link" style={{ color: '#38bdf8', fontWeight: 700 }}>⚙ Admin Panel</Link>
             )}
             <button onClick={logout} className="btn btn-secondary btn-sm">Logout</button>
           </div>

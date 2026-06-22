@@ -6,6 +6,7 @@ import {
   downloadTemplate, importLessons, importWordContent, importMcq, importArrange,
 } from '../services/api'
 import { useAuth } from '../context/AuthContext'
+import AdminNav from '../components/AdminNav'
 
 const LANG = 1
 
@@ -214,18 +215,7 @@ export default function AdminLessons() {
           background: 'radial-gradient(ellipse,rgba(56,189,248,0.05) 0%,transparent 70%)', borderRadius: '50%' }} />
       </div>
       <div style={{ position: 'relative', zIndex: 1 }}>
-        {/* Nav */}
-        <nav style={{ background: 'rgba(8,12,20,0.92)', backdropFilter: 'blur(16px)',
-          borderBottom: '1px solid rgba(99,179,237,0.1)', padding: '12px 28px',
-          display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-          <span style={{ fontWeight: 900, color: T.accent, fontSize: '1.05rem' }}>📚 Lesson Manager</span>
-          <div style={{ flex: 1 }} />
-          <Link to="/admin" style={{ color: T.muted, textDecoration: 'none', fontSize: '0.85rem' }}>⚙ Admin</Link>
-          <Link to="/lessons" style={{ color: T.muted, textDecoration: 'none', fontSize: '0.85rem' }}>← App</Link>
-          <button onClick={logout} style={{ padding: '6px 14px', borderRadius: 8,
-            border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)',
-            color: T.muted, cursor: 'pointer', fontSize: '0.82rem' }}>Logout</button>
-        </nav>
+        <AdminNav activePath="/admin/lessons" />
 
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 20px 80px' }}>
           {/* Header row */}

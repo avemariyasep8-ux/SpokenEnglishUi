@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getMeaningQuestionsAdmin, addMeaningQuestion, updateMeaningQuestion, deleteMeaningQuestion, addMeaningOption, updateMeaningOption, deleteMeaningOption } from '../services/api'
 import { useAuth } from '../context/AuthContext'
+import AdminNav from '../components/AdminNav'
 
 const LANGUAGE_ID = 1
 
@@ -68,13 +69,7 @@ export default function AdminMeaningQuestions() {
     <div className="page-wrapper">
       <div className="star-bg" />
       <div style={{ position: 'relative', zIndex: 1 }}>
-        <nav className="navbar">
-          <span className="navbar-logo">✦ Spoken English (Admin)</span>
-          <div className="navbar-links">
-            <Link to="/admin/lessons" className="nav-link">Lessons</Link>
-            <button onClick={logout} className="btn btn-secondary btn-sm">Logout</button>
-          </div>
-        </nav>
+        <AdminNav activePath="/admin/lessons" />
 
         <div className="container" style={{ paddingTop: 40, paddingBottom: 60 }}>
           <div className="flex justify-between items-center mb-10">

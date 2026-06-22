@@ -101,7 +101,36 @@ export const importLessons    = (file) => { const fd = new FormData(); fd.append
 export const importWordContent= (file) => { const fd = new FormData(); fd.append('file', file); return API.post('/admin/import/wordcontent', fd, { headers: { 'Content-Type': 'multipart/form-data' } }) }
 export const importMcq        = (file) => { const fd = new FormData(); fd.append('file', file); return API.post('/admin/import/mcq', fd, { headers: { 'Content-Type': 'multipart/form-data' } }) }
 export const importArrange    = (file) => { const fd = new FormData(); fd.append('file', file); return API.post('/admin/import/arrange', fd, { headers: { 'Content-Type': 'multipart/form-data' } }) }
-export const getLessonStats   = () => API.get('/admin/lesson-stats')
-export const grantUserAccess  = (id, grant) => API.post(`/admin/users/${id}/grant-access`, { grant })
+export const getLessonStats        = () => API.get('/admin/lesson-stats')
+export const grantUserAccess       = (id, grant) => API.post(`/admin/users/${id}/grant-access`, { grant })
+
+// ── Admin – Lessons CRUD ───────────────────────────────────────────────────
+export const adminGetLessons       = () => API.get('/admin/lessons-list')
+export const adminCreateLesson     = (data) => API.post('/admin/lessons', data)
+export const adminUpdateLesson     = (id, data) => API.put(`/admin/lessons/${id}`, data)
+export const adminDeleteLesson     = (id) => API.delete(`/admin/lessons/${id}`)
+export const adminSetPremium       = (id, isPremium) => API.post(`/admin/lessons/${id}/premium`, { isPremium })
+
+// ── Admin – Users CRUD ─────────────────────────────────────────────────────
+export const adminGetUsers         = () => API.get('/admin/users')
+export const adminCreateUser       = (data) => API.post('/admin/users', data)
+export const adminUpdateUser       = (id, data) => API.put(`/admin/users/${id}`, data)
+export const adminDeleteUser       = (id) => API.delete(`/admin/users/${id}`)
+export const adminSetRole          = (id, role) => API.post(`/admin/users/${id}/role`, { role })
+export const adminToggleUser       = (id) => API.post(`/admin/users/${id}/toggle`)
+export const adminGetStats         = () => API.get('/admin/stats')
+
+// ── Admin – Reports ────────────────────────────────────────────────────────
+export const adminReportsOverview  = () => API.get('/admin/reports/overview')
+export const adminReportsUsers     = () => API.get('/admin/reports/users')
+export const adminReportUser       = (userId) => API.get(`/admin/reports/user/${userId}`)
+
+// ── Admin – Lesson Access per user ────────────────────────────────────────
+export const adminGetUserAccess    = (userId) => API.get(`/admin/users/${userId}/lesson-access`)
+export const adminSetLessonAccess  = (userId, lessonId, hasAccess) =>
+  API.post(`/admin/users/${userId}/lesson-access`, { lessonId, hasAccess })
+
+// ── Admin – Export CSV ────────────────────────────────────────────────────
+export const adminExportCsv        = (type) => API.get(`/admin/export/${type}`, { responseType: 'blob' })
 
 export default API

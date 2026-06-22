@@ -47,7 +47,7 @@ export default function Dashboard() {
             <Link to="/progress"     className="nav-link">Progress</Link>
             <Link to="/subscription" className="nav-link">👑 Plans</Link>
             {user?.role === 'Admin' && (
-              <Link to="/admin/bulk" className="nav-link">Admin</Link>
+              <Link to="/admin" className="nav-link" style={{ color: '#38bdf8', fontWeight: 700 }}>⚙ Admin Panel</Link>
             )}
             {streak?.currentStreak > 0 && (
               <span style={{ color: '#f59e0b', fontWeight: 800, fontSize: '0.9rem' }}>🔥{streak.currentStreak}</span>

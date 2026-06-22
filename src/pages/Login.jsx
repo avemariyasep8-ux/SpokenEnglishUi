@@ -14,8 +14,8 @@ export default function Login() {
     e.preventDefault()
     setError(''); setLoading(true)
     try {
-      await login(form.email, form.password)
-      navigate('/dashboard')
+      const userData = await login(form.email, form.password)
+      navigate(userData.role === 'Admin' ? '/admin' : '/dashboard')
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid credentials. Please try again.')
     } finally {
