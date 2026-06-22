@@ -6,6 +6,8 @@ import API, {
   adminReportsOverview, adminReportsUsers,
   adminExportCsv,
   importLessons, importWordContent, importMcq, importArrange,
+  importTranslateSentences, exportTranslateSentences,
+  adminGetTranslateSentences, addTranslateSentence, updateTranslateSentence, deleteTranslateSentence,
   downloadTemplate,
   getLessons, deleteLesson,
 } from '../services/api'
@@ -48,6 +50,8 @@ export default function AdminDashboard() {
   const [loading, setLoading]     = useState(true)
   const [msg, setMsg]             = useState({ text: '', type: 'success' })
   const [importResults, setImportResults] = useState({})
+  const [shownPasswords, setShownPasswords] = useState({}) // userId → plaintext password shown after reset
+  const [pwdInput, setPwdInput]   = useState({})  // userId → current input value for inline set
 
   // Sync tab when URL hash changes (nav bar clicks)
   useEffect(() => {
@@ -101,11 +105,13 @@ export default function AdminDashboard() {
   }
 
   const resetPassword = async (id, email) => {
-    const np = window.prompt(`Set new password for ${email}:\n(min 6 characters)`)
-    if (!np) return
+    const np = pwdInput[id]?.trim()
+    if (!np) { flash('Enter a new password first', 'error'); return }
     if (np.length < 6) { flash('Password must be at least 6 characters', 'error'); return }
     try {
       await adminResetPassword(id, np)
+      setShownPasswords(p => ({ ...p, [id]: np }))
+      setPwdInput(p => ({ ...p, [id]: '' }))
       flash(`Password updated for ${email}`)
     } catch { flash('Failed to reset password', 'error') }
   }
@@ -120,7 +126,7 @@ export default function AdminDashboard() {
 
   const doExport = async (type) => {
     try {
-      const res = await adminExportCsv(type)
+      const res = type === 'translate' ? await exportTranslateSentences() : await adminExportCsv(type)
       const url = URL.createObjectURL(res.data)
       const a = document.createElement('a')
       a.href = url; a.download = `${type}_export.csv`; a.click()
@@ -132,7 +138,7 @@ export default function AdminDashboard() {
   const doImport = async (type, file) => {
     if (!file) return
     try {
-      const importFns = { lessons: importLessons, wordcontent: importWordContent, mcq: importMcq, arrange: importArrange }
+      const importFns = { lessons: importLessons, wordcontent: importWordContent, mcq: importMcq, arrange: importArrange, translate: importTranslateSentences }
       const res = await importFns[type](file)
       setImportResults(r => ({ ...r, [type]: res.data }))
       flash(`Imported: ${res.data.imported ?? 0} rows, Skipped: ${res.data.skipped ?? 0}`)
@@ -161,6 +167,169 @@ export default function AdminDashboard() {
   }
 
   // ── Sub-components ──────────────────────────────────────────
+
+  // ── Translate Sentence Manager ─────────────────────────────────────
+  const TranslateSection = () => {
+    const [tsLessonId, setTsLessonId] = useState('')
+    const [tsRows, setTsRows]         = useState([])
+    const [tsLoading, setTsLoading]   = useState(false)
+    const [editRow, setEditRow]       = useState(null)  // null | row being edited
+    const [newRow, setNewRow]         = useState({ tamilSentence: '', correctSentence: '', displayOrder: 1 })
+    const [adding, setAdding]         = useState(false)
+
+    const loadTs = async (lid) => {
+      if (!lid) return
+      setTsLoading(true)
+      try {
+        const r = await adminGetTranslateSentences(lid)
+        setTsRows(r.data ?? [])
+      } finally { setTsLoading(false) }
+    }
+
+    const handleAdd = async () => {
+      if (!newRow.tamilSentence || !newRow.correctSentence) { flash('Both sentences required', 'error'); return }
+      try {
+        await addTranslateSentence({ lessonId: parseInt(tsLessonId), ...newRow })
+        flash('Added')
+        setNewRow({ tamilSentence: '', correctSentence: '', displayOrder: 1 })
+        setAdding(false)
+        loadTs(tsLessonId)
+      } catch { flash('Add failed', 'error') }
+    }
+
+    const handleUpdate = async () => {
+      if (!editRow.tamilsentence || !editRow.correctsentence) { flash('Both sentences required', 'error'); return }
+      try {
+        await updateTranslateSentence(editRow.id, {
+          lessonId: editRow.lessonid, tamilSentence: editRow.tamilsentence,
+          correctSentence: editRow.correctsentence, displayOrder: editRow.displayorder, isActive: editRow.isactive
+        })
+        flash('Updated')
+        setEditRow(null)
+        loadTs(tsLessonId)
+      } catch { flash('Update failed', 'error') }
+    }
+
+    const handleDelete = async (id) => {
+      if (!window.confirm('Delete this sentence?')) return
+      try {
+        await deleteTranslateSentence(id)
+        flash('Deleted')
+        loadTs(tsLessonId)
+      } catch { flash('Delete failed', 'error') }
+    }
+
+    const inputStyle = { padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(56,189,248,.3)',
+      background: 'rgba(56,189,248,.06)', color: '#e2e8f0', fontSize: '0.85rem', width: '100%' }
+
+    return (
+      <div style={{ ...glass(T.accent), marginBottom: 16 }}>
+        <div style={{ fontWeight: 700, marginBottom: 4, fontSize: '1rem' }}>🌐 Translate Sentences</div>
+        <div style={{ color: T.muted, fontSize: '0.82rem', marginBottom: 16 }}>
+          Tamil sentences users translate to English by speaking. Add, edit, delete per lesson.
+        </div>
+
+        {/* Import CSV */}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+          <span style={{ color: T.muted, fontSize: '0.82rem' }}>CSV Import (LessonId, TamilSentence, CorrectSentence, DisplayOrder):</span>
+          <input type="file" accept=".csv" onChange={e => doImport('translate', e.target.files[0])}
+            style={{ color: T.text, fontSize: '0.82rem' }} />
+          {importResults.translate && (
+            <span style={{ color: T.success, fontSize: '0.82rem' }}>
+              ✓ {importResults.translate.imported} imported
+            </span>
+          )}
+        </div>
+
+        {/* Lesson selector */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center' }}>
+          <select value={tsLessonId} onChange={e => { setTsLessonId(e.target.value); loadTs(e.target.value) }}
+            style={{ ...inputStyle, width: 220 }}>
+            <option value="">-- Select Lesson --</option>
+            {lessons.map(l => (
+              <option key={l.lessonID || l.lessonId} value={l.lessonID || l.lessonId}>
+                {l.lessonName}
+              </option>
+            ))}
+          </select>
+          {tsLessonId && (
+            <button onClick={() => setAdding(a => !a)}
+              style={{ padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                background: 'linear-gradient(135deg,#38bdf8,#818cf8)', color: '#fff', fontWeight: 700, fontSize: '0.85rem' }}>
+              + Add New
+            </button>
+          )}
+        </div>
+
+        {/* Add form */}
+        {adding && (
+          <div style={{ background: 'rgba(56,189,248,.06)', borderRadius: 10, padding: 14, marginBottom: 14,
+            border: '1px solid rgba(56,189,248,.2)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <input placeholder="Tamil sentence (தமிழ்)" value={newRow.tamilSentence}
+              onChange={e => setNewRow(r => ({ ...r, tamilSentence: e.target.value }))} style={inputStyle} />
+            <input placeholder="Correct English translation" value={newRow.correctSentence}
+              onChange={e => setNewRow(r => ({ ...r, correctSentence: e.target.value }))} style={inputStyle} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input type="number" placeholder="Order" value={newRow.displayOrder} min={1}
+                onChange={e => setNewRow(r => ({ ...r, displayOrder: parseInt(e.target.value) || 1 }))}
+                style={{ ...inputStyle, width: 80 }} />
+              <button onClick={handleAdd} style={{ padding: '6px 18px', borderRadius: 8, border: 'none',
+                background: T.success, color: '#fff', fontWeight: 700, cursor: 'pointer', flex: 1 }}>Save</button>
+              <button onClick={() => setAdding(false)} style={{ padding: '6px 14px', borderRadius: 8, border: 'none',
+                background: 'rgba(255,255,255,.08)', color: T.muted, cursor: 'pointer' }}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {/* Rows */}
+        {tsLoading ? (
+          <div style={{ color: T.muted, fontSize: '0.85rem' }}>Loading…</div>
+        ) : tsRows.length === 0 && tsLessonId ? (
+          <div style={{ color: T.muted, fontSize: '0.85rem' }}>No translate sentences yet. Add one above or import CSV.</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {tsRows.map(row => (
+              <div key={row.id} style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10,
+                padding: '10px 14px', border: '1px solid rgba(255,255,255,.07)' }}>
+                {editRow?.id === row.id ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <input value={editRow.tamilsentence}
+                      onChange={e => setEditRow(r => ({ ...r, tamilsentence: e.target.value }))} style={inputStyle} />
+                    <input value={editRow.correctsentence}
+                      onChange={e => setEditRow(r => ({ ...r, correctsentence: e.target.value }))} style={inputStyle} />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input type="number" value={editRow.displayorder} min={1}
+                        onChange={e => setEditRow(r => ({ ...r, displayorder: parseInt(e.target.value) || 1 }))}
+                        style={{ ...inputStyle, width: 80 }} />
+                      <button onClick={handleUpdate} style={{ padding: '6px 14px', borderRadius: 8, border: 'none',
+                        background: T.success, color: '#fff', fontWeight: 700, cursor: 'pointer', flex: 1 }}>Save</button>
+                      <button onClick={() => setEditRow(null)} style={{ padding: '6px 14px', borderRadius: 8, border: 'none',
+                        background: 'rgba(255,255,255,.08)', color: T.muted, cursor: 'pointer' }}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ color: '#fbbf24', fontSize: '0.95rem', fontWeight: 600, marginBottom: 3 }}>{row.tamilsentence}</div>
+                      <div style={{ color: T.text, fontSize: '0.88rem' }}>↳ {row.correctsentence}</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                      <button onClick={() => setEditRow({ ...row })}
+                        style={{ padding: '3px 8px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                          background: 'rgba(56,189,248,.15)', color: '#38bdf8', fontSize: '0.75rem' }}>✏ Edit</button>
+                      <button onClick={() => handleDelete(row.id)}
+                        style={{ padding: '3px 8px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                          background: 'rgba(248,113,113,.15)', color: '#f87171', fontSize: '0.75rem' }}>🗑 Del</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   const StatCard = ({ label, value, icon, color }) => (
     <div style={{ ...glass(color), textAlign: 'center', minWidth: 130 }}>
@@ -386,12 +555,38 @@ export default function AdminDashboard() {
                         <td style={{ padding: '9px 10px', color: u.substatus === 'active' ? T.gold : T.muted, fontSize: '0.78rem' }}>
                           {u.planname ? `${u.planname} (${u.substatus})` : 'Free'}
                         </td>
-                        <td style={{ padding: '9px 10px' }}>
-                          <button onClick={() => resetPassword(u.id, u.email)}
-                            style={{ padding: '3px 8px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700,
-                              background: 'rgba(139,92,246,0.15)', color: '#a78bfa' }}>
-                            🔑 Reset
-                          </button>
+                        <td style={{ padding: '9px 10px', minWidth: 200 }}>
+                          {shownPasswords[u.id] ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ fontFamily: 'monospace', background: 'rgba(251,191,36,.1)', color: '#fbbf24',
+                                padding: '3px 8px', borderRadius: 6, fontSize: '0.82rem', letterSpacing: 1 }}>
+                                {shownPasswords[u.id]}
+                              </span>
+                              <button onClick={() => { navigator.clipboard.writeText(shownPasswords[u.id]); flash('Password copied!') }}
+                                style={{ padding: '2px 6px', borderRadius: 4, border: 'none', cursor: 'pointer',
+                                  background: 'rgba(56,189,248,.15)', color: '#38bdf8', fontSize: '0.7rem' }}>📋</button>
+                              <button onClick={() => setShownPasswords(p => { const n={...p}; delete n[u.id]; return n })}
+                                style={{ padding: '2px 6px', borderRadius: 4, border: 'none', cursor: 'pointer',
+                                  background: 'rgba(248,113,113,.1)', color: '#f87171', fontSize: '0.7rem' }}>✕</button>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <input
+                                type="text"
+                                placeholder="New password"
+                                value={pwdInput[u.id] || ''}
+                                onChange={e => setPwdInput(p => ({ ...p, [u.id]: e.target.value }))}
+                                onKeyDown={e => e.key === 'Enter' && resetPassword(u.id, u.email)}
+                                style={{ padding: '3px 7px', borderRadius: 6, border: '1px solid rgba(139,92,246,.3)',
+                                  background: 'rgba(139,92,246,.08)', color: '#e2e8f0', fontSize: '0.78rem', width: 110 }}
+                              />
+                              <button onClick={() => resetPassword(u.id, u.email)}
+                                style={{ padding: '3px 8px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700,
+                                  background: 'rgba(139,92,246,0.2)', color: '#a78bfa', whiteSpace: 'nowrap' }}>
+                                🔑 Set
+                              </button>
+                            </div>
+                          )}
                         </td>
                         <td style={{ padding: '9px 10px' }}>
                           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
@@ -489,10 +684,11 @@ export default function AdminDashboard() {
               <p style={{ color: T.muted, fontSize: '0.85rem', marginBottom: 24 }}>
                 Download a template CSV, fill it in, then upload it here. Duplicates are skipped automatically.
               </p>
-              <ImportSection type="lessons"     label="📚 Lessons"      desc="Import lesson names and display orders" />
-              <ImportSection type="wordcontent" label="📖 Word Content"  desc="Definitions, sentence patterns, examples (EN + TA)" />
-              <ImportSection type="mcq"         label="❓ MCQ Questions" desc="Multiple-choice questions with options and correct answer" />
-              <ImportSection type="arrange"     label="🔀 Arrange Words" desc="Sentence arrangement exercises" />
+              <ImportSection type="lessons"     label="📚 Lessons"           desc="Import lesson names and display orders" />
+              <ImportSection type="wordcontent" label="📖 Word Content"       desc="Definitions, sentence patterns, examples (EN + TA)" />
+              <ImportSection type="mcq"         label="❓ MCQ Questions"      desc="Multiple-choice questions with options and correct answer" />
+              <ImportSection type="arrange"     label="🔀 Arrange Words"      desc="Sentence arrangement exercises" />
+              <TranslateSection />
             </div>
           )}
 
@@ -505,9 +701,10 @@ export default function AdminDashboard() {
               </p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 16 }}>
                 {[
-                  { type: 'lessons',     icon: '📚', label: 'Export Lessons',      desc: 'All lesson names, order, premium flag' },
-                  { type: 'wordcontent', icon: '📖', label: 'Export Word Content',  desc: 'Definitions, patterns, examples EN+TA' },
-                  { type: 'mcq',         icon: '❓', label: 'Export MCQ',           desc: 'All questions and answer options' },
+                  { type: 'lessons',     icon: '📚', label: 'Export Lessons',           desc: 'All lesson names, order, premium flag' },
+                  { type: 'wordcontent', icon: '📖', label: 'Export Word Content',       desc: 'Definitions, patterns, examples EN+TA' },
+                  { type: 'mcq',         icon: '❓', label: 'Export MCQ',                desc: 'All questions and answer options' },
+                  { type: 'translate',   icon: '🌐', label: 'Export Translate Sentences',desc: 'Tamil sentences and English translations' },
                 ].map(e => (
                   <div key={e.type} style={{ ...glass(T.success) }}>
                     <div style={{ fontSize: '1.5rem', marginBottom: 8 }}>{e.icon}</div>

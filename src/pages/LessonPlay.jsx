@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   getMeaningQuestionsAdmin, getArrangeSentences,
-  getWordContent, getLessons, updateStreak
+  getWordContent, getLessons, updateStreak, getTranslateSentences
 } from '../services/api'
 import { speak, speakTamil, listen, normalizeText, diffWords, isSpeechRecognitionSupported } from '../services/speechUtils'
 import { useAuth } from '../context/AuthContext'
@@ -125,7 +125,7 @@ function IntroStep({ lessonName, description, onNext }) {
     setTimeout(() => speak(`Today we learn about ${lessonName}. ${description}. Let us begin!`), 600)
   }, [])
 
-  const steps = ['📝 Meaning & Use', '💬 Example Sentences', '✏️ Fill in Blank', '🧩 Arrange Words', '🎙 Read Aloud']
+  const steps = ['📝 Meaning & Use', '💬 Example Sentences', '✏️ Fill in Blank', '🧩 Arrange Words', '🌐 Translate']
   return (
     <motion.div initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }}
       style={{ ...glass(T.accent1, true), padding: '44px 32px', textAlign: 'center', maxWidth: 520, margin: '0 auto' }}>
@@ -434,7 +434,144 @@ function ArrangeStep({ sentence, lang, onCorrect, onWrong }) {
   )
 }
 
-// ── Step 5b: Read Aloud ───────────────────────────────────────────────────────
+// ── Step 5b: Translate Sentence ──────────────────────────────────────────────
+
+function TranslateStep({ sentence, onPass, onSkip }) {
+  const tamil   = sentence.tamilsentence || sentence.tamilSentence || ''
+  const correct = sentence.correctsentence || sentence.correctSentence || ''
+  const [phase, setPhase]       = useState('idle')  // idle | listening | done
+  const [result, setResult]     = useState(null)     // null | 'pass' | 'fail'
+  const [attempts, setAttempts] = useState(0)
+  const [msg, setMsg]           = useState('')
+  const [showAnswer, setShowAnswer] = useState(false)
+  const MAX_ATTEMPTS = 3
+
+  useEffect(() => {
+    setTimeout(() => speak('Read the Tamil sentence and say the English translation.', 'en-US', 0.9), 400)
+  }, [tamil])
+
+  const go = async () => {
+    if (phase === 'listening') return
+    setPhase('listening'); setMsg('Listening… Speak your English translation!'); setResult(null); setShowAnswer(false)
+    try {
+      const transcript = await listen()
+      const n1 = normalizeText(transcript)
+      const n2 = normalizeText(correct)
+      const words2 = n2.split(' ').filter(Boolean)
+      const ok = n1 === n2 || n1.includes(n2) ||
+        words2.filter(w => n1.includes(w)).length >= Math.ceil(words2.length * 0.7)
+      setResult(ok ? 'pass' : 'fail')
+      setPhase('done')
+      setAttempts(a => a + 1)
+      if (ok) {
+        speak('Excellent! Perfect translation!')
+        setTimeout(onPass, 1800)
+      } else {
+        speak('Good try! Listen to the correct answer and try again.')
+        setMsg(`You said: "${transcript}"`)
+        speak(correct)
+      }
+    } catch (e) {
+      setPhase('idle')
+      setMsg(e.message || 'Could not hear. Please try again.')
+    }
+  }
+
+  const tryAgain = () => { setPhase('idle'); setResult(null); setMsg(''); setShowAnswer(false) }
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
+      <StepLabel text="Translate to English" color={T.gold} />
+
+      {/* Tamil sentence to translate */}
+      <div style={{ ...glass(T.gold, true), padding: '28px 28px', marginBottom: 18, textAlign: 'center' }}>
+        <div style={{ fontSize: '0.68rem', color: T.gold, letterSpacing: 3, marginBottom: 12, fontWeight: 800 }}>
+          READ IN TAMIL — SAY IN ENGLISH
+        </div>
+        <p style={{ color: T.gold, fontSize: '1.5rem', fontWeight: 700, lineHeight: 1.6, margin: '0 0 16px' }}>
+          {tamil}
+        </p>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button onClick={() => speakTamil(tamil)}
+            style={{ ...btn('ghost'), width: 'auto', padding: '8px 18px', fontSize: '0.82rem',
+              color: T.gold, borderColor: '#f59e0b40' }}>🎙 Hear Tamil</button>
+          <button onClick={() => setShowAnswer(a => !a)}
+            style={{ ...btn('ghost'), width: 'auto', padding: '8px 18px', fontSize: '0.82rem' }}>
+            {showAnswer ? '🙈 Hide Answer' : '💡 Hint'}
+          </button>
+        </div>
+        {showAnswer && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+            style={{ marginTop: 14, padding: '10px 16px', background: 'rgba(251,191,36,.1)',
+              borderRadius: 10, color: T.text, fontSize: '1rem', fontStyle: 'italic' }}>
+            "{correct}"
+          </motion.div>
+        )}
+      </div>
+
+      {/* Instruction */}
+      <div style={{ ...glass(T.accent2), padding: '12px 18px', marginBottom: 18, textAlign: 'center',
+        color: T.muted, fontSize: '0.85rem' }}>
+        🎤 Translate the Tamil sentence to English and speak it aloud
+      </div>
+
+      {!isSpeechRecognitionSupported() ? (
+        <div style={{ ...glass(T.orange), padding: '16px 20px', marginBottom: 20, textAlign: 'center' }}>
+          <p style={{ color: T.orange, fontWeight: 700, marginBottom: 6 }}>🎙 Voice input requires Chrome or Edge</p>
+          <button onClick={onSkip} style={{ ...btn('ghost'), width: 'auto', padding: '8px 20px', marginTop: 10 }}>Skip →</button>
+        </div>
+      ) : (
+        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+          <motion.button onClick={phase !== 'listening' ? go : undefined}
+            animate={phase === 'listening' ? { scale: [1,1.12,1], boxShadow: ['0 0 0 0 rgba(251,191,36,0)','0 0 0 18px rgba(251,191,36,0.2)','0 0 0 0 rgba(251,191,36,0)'] } : {}}
+            transition={{ duration: 1.2, repeat: phase === 'listening' ? Infinity : 0 }}
+            style={{ width: 90, height: 90, borderRadius: '50%', border: 'none',
+              cursor: phase === 'listening' ? 'default' : 'pointer', fontSize: '2rem',
+              background: phase === 'listening' ? 'linear-gradient(135deg,#fbbf24,#f59e0b)'
+                : result === 'pass' ? 'linear-gradient(135deg,#34d399,#059669)'
+                : result === 'fail' ? 'linear-gradient(135deg,#f87171,#dc2626)'
+                : 'linear-gradient(135deg,#38bdf8,#818cf8)',
+              color: '#fff', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+            {phase === 'listening' ? '👂' : result === 'pass' ? '✅' : result === 'fail' ? '❌' : '🎤'}
+          </motion.button>
+
+          {msg && <p style={{ color: T.muted, fontSize: '0.85rem', marginTop: 12 }}>{msg}</p>}
+        </div>
+      )}
+
+      {result === 'pass' && (
+        <div style={{ ...glass(T.accent3), padding: '14px 20px', textAlign: 'center',
+          color: T.accent3, fontWeight: 700, marginBottom: 12 }}>
+          ✅ Correct! "{correct}"
+        </div>
+      )}
+
+      {result === 'fail' && phase === 'done' && (
+        <div style={{ ...glass(T.danger), padding: '14px 20px', marginBottom: 16 }}>
+          <p style={{ color: T.danger, fontWeight: 700, marginBottom: 8, textAlign: 'center' }}>Not quite right</p>
+          <p style={{ color: T.text, fontSize: '0.88rem', textAlign: 'center' }}>
+            Correct: <em style={{ color: T.accent3, fontWeight: 600 }}>"{correct}"</em>
+          </p>
+          <button onClick={() => speak(correct)}
+            style={{ ...btn('ghost'), marginTop: 10, padding: '8px 18px', width: 'auto', fontSize: '0.82rem' }}>
+            🔊 Hear Correct Answer
+          </button>
+          <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+            {attempts < MAX_ATTEMPTS ? (
+              <button onClick={tryAgain} style={btn('outline')}>
+                🔁 Try Again ({MAX_ATTEMPTS - attempts} left)
+              </button>
+            ) : (
+              <button onClick={onSkip} style={{ ...btn('ghost'), color: T.muted }}>Skip →</button>
+            )}
+          </div>
+        </div>
+      )}
+    </motion.div>
+  )
+}
+
+// ── Step 5c: Read Aloud (legacy, kept for retry queue) ───────────────────────
 
 function ReadStep({ sentence, lang, onPass, onSkip }) {
   const text = sentence.correctSentence || sentence.correctAnswer || sentence.sentenceText || ''
@@ -627,10 +764,11 @@ export default function LessonPlay() {
 
   useEffect(() => {
     const load = async () => {
-      const [wc, mcq, arr] = await Promise.all([
+      const [wc, mcq, arr, trs] = await Promise.all([
         getWordContent(lessonId, LANG).then(r => r.data ?? []).catch(() => []),
         getMeaningQuestionsAdmin(lessonId, LANG).then(r => r.data ?? []).catch(() => []),
         getArrangeSentences(lessonId, LANG).then(r => r.data ?? []).catch(() => []),
+        getTranslateSentences(lessonId, LANG).then(r => r.data ?? []).catch(() => []),
       ])
 
       // Always fetch lesson name from API (route state may be absent on direct URL access)
@@ -659,10 +797,15 @@ export default function LessonPlay() {
       // Fill in blank MCQ
       shuffle(mcq).slice(0, MAX_MCQ).forEach(m => q.push({ type: 'mcq', data: m }))
 
-      // Arrange + Read aloud
+      // Arrange sentences
       shuffle(arr).slice(0, MAX_ARR).forEach(a => {
         q.push({ type: 'arrange', data: a })
-        q.push({ type: 'read', data: a })
+      })
+
+      // Translate sentences (Tamil → speak English)
+      const MAX_TR = 3
+      shuffle(trs).slice(0, MAX_TR).forEach(t => {
+        q.push({ type: 'translate', data: t })
       })
 
       setMainQueue(q)
@@ -695,9 +838,6 @@ export default function LessonPlay() {
     setPerfect(false)
     setHearts(h => Math.max(0, h - 1))
     const items = [step]
-    if (step.type === 'arrange') {
-      items.push({ type: 'read', data: step.data })
-    }
     setWrongItems(w => [...w, ...items])
   }
 
@@ -795,6 +935,11 @@ export default function LessonPlay() {
                 <ArrangeStep sentence={currentStep.data} lang={lang}
                   onCorrect={() => { gainXp(15); doNext() }}
                   onWrong={() => { addWrong(currentStep); doNext() }} />
+              )}
+              {currentStep?.type === 'translate' && (
+                <TranslateStep sentence={currentStep.data}
+                  onPass={() => { gainXp(20); doNext() }}
+                  onSkip={doNext} />
               )}
               {currentStep?.type === 'read' && (
                 <ReadStep sentence={currentStep.data} lang={lang}
