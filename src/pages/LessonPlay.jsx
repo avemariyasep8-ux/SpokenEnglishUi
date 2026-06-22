@@ -797,9 +797,10 @@ export default function LessonPlay() {
       // Fill in blank MCQ
       shuffle(mcq).slice(0, MAX_MCQ).forEach(m => q.push({ type: 'mcq', data: m }))
 
-      // Arrange sentences
+      // Arrange + Read Aloud (as original)
       shuffle(arr).slice(0, MAX_ARR).forEach(a => {
         q.push({ type: 'arrange', data: a })
+        q.push({ type: 'read', data: a })
       })
 
       // Translate: use arrange sentences that have tamilMeaning
