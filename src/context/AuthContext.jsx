@@ -19,10 +19,17 @@ export function AuthProvider({ children }) {
     setLoading(false)
   }, [])
 
+  const decodeRole = (jwt) => {
+    try {
+      const payload = JSON.parse(atob(jwt.split('.')[1]))
+      return payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || payload.role || 'User'
+    } catch { return 'User' }
+  }
+
   const login = async (email, password) => {
     const res = await apiLogin({ emailOrMob: email, password })
     const { token: t, userID, email: userEmail, apiKey, role } = res.data
-    const userData = { userId: userID, email: userEmail, apiKey, role }
+    const userData = { userId: userID, email: userEmail, apiKey, role: role || decodeRole(t) }
     setToken(t)
     setUser(userData)
     localStorage.setItem('token', t)
