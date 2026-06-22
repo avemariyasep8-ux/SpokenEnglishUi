@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import API, {
-  adminGetStats, adminGetUsers, adminSetRole, adminToggleUser, grantUserAccess,
+  adminGetStats, adminGetUsers, adminSetRole, adminToggleUser, adminResetPassword, grantUserAccess,
   adminReportsOverview, adminReportsUsers,
   adminExportCsv,
   importLessons, importWordContent, importMcq, importArrange,
@@ -98,6 +98,16 @@ export default function AdminDashboard() {
       setUsers(u => u.map(x => x.id === id ? { ...x, isactive: !x.isactive } : x))
       flash('User status updated')
     } catch { flash('Failed to toggle user', 'error') }
+  }
+
+  const resetPassword = async (id, email) => {
+    const np = window.prompt(`Set new password for ${email}:\n(min 6 characters)`)
+    if (!np) return
+    if (np.length < 6) { flash('Password must be at least 6 characters', 'error'); return }
+    try {
+      await adminResetPassword(id, np)
+      flash(`Password updated for ${email}`)
+    } catch { flash('Failed to reset password', 'error') }
   }
 
   const grantAccess = async (id, grant) => {
@@ -349,7 +359,7 @@ export default function AdminDashboard() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.83rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                      {['ID', 'Email', 'Mobile', 'Role', 'Status', 'Subscription', 'Actions'].map(h => (
+                      {['ID', 'Email', 'Mobile', 'Role', 'Status', 'Subscription', 'Password', 'Actions'].map(h => (
                         <th key={h} style={{ padding: '10px 10px', textAlign: 'left', color: T.muted, fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
@@ -377,6 +387,13 @@ export default function AdminDashboard() {
                           {u.planname ? `${u.planname} (${u.substatus})` : 'Free'}
                         </td>
                         <td style={{ padding: '9px 10px' }}>
+                          <button onClick={() => resetPassword(u.id, u.email)}
+                            style={{ padding: '3px 8px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700,
+                              background: 'rgba(139,92,246,0.15)', color: '#a78bfa' }}>
+                            🔑 Reset
+                          </button>
+                        </td>
+                        <td style={{ padding: '9px 10px' }}>
                           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                             <button onClick={() => toggleUser(u.id)}
                               style={{ padding: '3px 8px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700,
@@ -397,7 +414,7 @@ export default function AdminDashboard() {
                       </tr>
                     ))}
                     {users.length === 0 && (
-                      <tr><td colSpan={7} style={{ padding: 24, color: T.muted, textAlign: 'center' }}>No users found</td></tr>
+                      <tr><td colSpan={8} style={{ padding: 24, color: T.muted, textAlign: 'center' }}>No users found</td></tr>
                     )}
                   </tbody>
                 </table>

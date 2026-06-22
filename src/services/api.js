@@ -118,6 +118,7 @@ export const adminUpdateUser       = (id, data) => API.put(`/admin/users/${id}`,
 export const adminDeleteUser       = (id) => API.delete(`/admin/users/${id}`)
 export const adminSetRole          = (id, role) => API.post(`/admin/users/${id}/role`, { role })
 export const adminToggleUser       = (id) => API.post(`/admin/users/${id}/toggle`)
+export const adminResetPassword    = (id, newPassword) => API.post(`/admin/users/${id}/password`, { newPassword })
 export const adminGetStats         = () => API.get('/admin/stats')
 
 // ── Admin – Reports ────────────────────────────────────────────────────────
