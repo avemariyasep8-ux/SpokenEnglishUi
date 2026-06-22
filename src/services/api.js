@@ -68,15 +68,6 @@ export const deleteArrangeSentence = (id) => API.delete(`/arrange/${id}`)
 export const getReadingSentences = (lessonId, languageId) =>
   API.get(`/reading/${lessonId}/${languageId}`)
 
-// ── Translate Sentence ────────────────────────────────
-export const getTranslateSentences     = (lessonId, languageId) => API.get(`/translate/${lessonId}/${languageId}`)
-export const adminGetTranslateSentences= (lessonId) => API.get(`/translate/admin/${lessonId}`)
-export const addTranslateSentence      = (data) => API.post('/translate', data)
-export const updateTranslateSentence   = (id, data) => API.put(`/translate/${id}`, data)
-export const deleteTranslateSentence   = (id) => API.delete(`/translate/${id}`)
-export const importTranslateSentences  = (file) => { const fd = new FormData(); fd.append('file', file); return API.post('/translate/import', fd, { headers: { 'Content-Type': 'multipart/form-data' } }) }
-export const exportTranslateSentences  = () => API.get('/translate/export', { responseType: 'blob' })
-
 // ── Progress ──────────────────────────────────────────
 export const saveAnswer        = (data)              => API.post('/progress/answer', data)
 export const getUserProgress   = (userId, languageId)=> API.get(`/progress/${userId}/${languageId}`)

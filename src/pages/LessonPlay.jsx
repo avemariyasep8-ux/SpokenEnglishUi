@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   getMeaningQuestionsAdmin, getArrangeSentences,
-  getWordContent, getLessons, updateStreak, getTranslateSentences
+  getWordContent, getLessons, updateStreak
 } from '../services/api'
 import { speak, speakTamil, listen, normalizeText, diffWords, isSpeechRecognitionSupported } from '../services/speechUtils'
 import { useAuth } from '../context/AuthContext'
@@ -437,8 +437,9 @@ function ArrangeStep({ sentence, lang, onCorrect, onWrong }) {
 // ── Step 5b: Translate Sentence ──────────────────────────────────────────────
 
 function TranslateStep({ sentence, onPass, onSkip }) {
-  const tamil   = sentence.tamilsentence || sentence.tamilSentence || ''
-  const correct = sentence.correctsentence || sentence.correctSentence || ''
+  // Source: arrangesentence_lang — tamilMeaning is the Tamil prompt, correctSentence is the answer
+  const tamil   = sentence.tamilMeaning || sentence.tamilmeaning || ''
+  const correct = sentence.correctSentence || sentence.correctsentence || ''
   const [phase, setPhase]       = useState('idle')  // idle | listening | done
   const [result, setResult]     = useState(null)     // null | 'pass' | 'fail'
   const [attempts, setAttempts] = useState(0)
@@ -764,11 +765,10 @@ export default function LessonPlay() {
 
   useEffect(() => {
     const load = async () => {
-      const [wc, mcq, arr, trs] = await Promise.all([
+      const [wc, mcq, arr] = await Promise.all([
         getWordContent(lessonId, LANG).then(r => r.data ?? []).catch(() => []),
         getMeaningQuestionsAdmin(lessonId, LANG).then(r => r.data ?? []).catch(() => []),
         getArrangeSentences(lessonId, LANG).then(r => r.data ?? []).catch(() => []),
-        getTranslateSentences(lessonId, LANG).then(r => r.data ?? []).catch(() => []),
       ])
 
       // Always fetch lesson name from API (route state may be absent on direct URL access)
@@ -802,10 +802,11 @@ export default function LessonPlay() {
         q.push({ type: 'arrange', data: a })
       })
 
-      // Translate sentences (Tamil → speak English)
+      // Translate: use arrange sentences that have tamilMeaning
+      const withTamil = arr.filter(a => a.tamilMeaning || a.tamilmeaning)
       const MAX_TR = 3
-      shuffle(trs).slice(0, MAX_TR).forEach(t => {
-        q.push({ type: 'translate', data: t })
+      shuffle(withTamil).slice(0, MAX_TR).forEach(a => {
+        q.push({ type: 'translate', data: a })
       })
 
       setMainQueue(q)
