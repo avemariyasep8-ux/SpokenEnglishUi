@@ -69,9 +69,11 @@ export const getReadingSentences = (lessonId, languageId) =>
   API.get(`/reading/${lessonId}/${languageId}`)
 
 // ── Progress ──────────────────────────────────────────
-export const saveAnswer    = (data) => API.post('/progress/answer', data)
-export const getUserProgress = (userId, languageId) =>
-  API.get(`/progress/${userId}/${languageId}`)
+export const saveAnswer        = (data)              => API.post('/progress/answer', data)
+export const getUserProgress   = (userId, languageId)=> API.get(`/progress/${userId}/${languageId}`)
+export const getLessonSummary  = (userId)            => API.get(`/progress/lesson-summary/${userId}`)
+export const completeLesson    = (data)              => API.post('/progress/complete-lesson', data)
+export const resetLessonProgress = (userId, lessonId)=> API.delete(`/progress/reset/${userId}/${lessonId}`)
 
 // ── Word Content (definition/pattern cards) ───────────
 export const getWordContent    = (lessonId, languageId) => API.get(`/wordcontent/${lessonId}/${languageId}`)

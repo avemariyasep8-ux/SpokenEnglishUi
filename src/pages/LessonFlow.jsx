@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { getSequentialLesson, saveAnswer } from '../services/api'
+import { getSequentialLesson, saveAnswer, completeLesson } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { speak, listen, normalizeText } from '../services/speechUtils'
 
@@ -18,6 +18,9 @@ export default function LessonFlow() {
   const [subStepIndex, setSubStepIndex] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [startTime] = useState(() => Date.now())
+  const [sessionCorrect, setSessionCorrect] = useState(0)
+  const [sessionWrong, setSessionWrong] = useState(0)
 
   // Arrange state
   const [arrangeWords, setArrangeWords] = useState([])
@@ -81,7 +84,18 @@ export default function LessonFlow() {
       setCurrentStepIndex(nextIndex)
       initStep(lesson.steps[nextIndex], 0)
     } else {
-      navigate('/dashboard')
+      // Lesson complete — record time + score
+      if (user?.userId) {
+        const timeSpent = Math.round((Date.now() - startTime) / 1000)
+        completeLesson({
+          userId: user.userId,
+          lessonId: parseInt(lessonId),
+          timeSpentSeconds: timeSpent,
+          correctAnswers: sessionCorrect,
+          wrongAnswers: sessionWrong,
+        }).catch(console.error)
+      }
+      navigate('/progress', { state: { justCompleted: parseInt(lessonId) } })
     }
   }
 
@@ -118,6 +132,7 @@ export default function LessonFlow() {
     setIsArrangeCorrect(correct)
 
     if (correct) speak(currentPractice.correct)
+    if (correct) setSessionCorrect(c => c + 1); else setSessionWrong(w => w + 1)
 
     if (user?.userId) {
       saveAnswer({
@@ -146,6 +161,7 @@ export default function LessonFlow() {
       const matched = n1.includes(n2) || n2.includes(n1) ||
         n2.split(' ').filter(w => n1.includes(w)).length >= Math.ceil(n2.split(' ').length * 0.7)
       setVoiceResult({ ok: matched, text: transcript })
+      if (matched) setSessionCorrect(c => c + 1); else setSessionWrong(w => w + 1)
     } catch (err) {
       setVoiceError(err.message || 'Voice error. Please try again.')
     } finally {
