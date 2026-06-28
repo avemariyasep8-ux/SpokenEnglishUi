@@ -6,3 +6,7 @@ dist/
 *.log
 
 .vercel
+.claude
+.env.production.local
+error.txt
+error8.txt
