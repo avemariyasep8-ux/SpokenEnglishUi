@@ -183,7 +183,7 @@ function MeaningStep({ word, lang, onNext }) {
           <div style={{ fontSize: '0.68rem', fontWeight: 800, color: T.gold, letterSpacing: 2, marginBottom: 8 }}>
             தமிழ் பொருள் (TAMIL MEANING)
           </div>
-          <p style={{ color: T.text, fontSize: '0.95rem', lineHeight: 1.7, margin: 0 }}>{word.definitionTa}</p>
+          <p style={{ color: T.text, fontSize: '0.95rem', lineHeight: 1.7, margin: 0, fontFamily: "'Noto Sans Tamil', sans-serif" }}>{word.definitionTa}</p>
         </div>
       )}
 
@@ -238,7 +238,7 @@ function ExampleStep({ word, lang, onNext }) {
           <div style={{ fontSize: '0.68rem', fontWeight: 800, color: T.gold, letterSpacing: 2, marginBottom: 10 }}>
             தமிழ் மொழிபெயர்ப்பு (TAMIL)
           </div>
-          <p style={{ color: T.text, fontSize: '1rem', lineHeight: 1.7, margin: 0 }}>{word.exampleTa}</p>
+          <p style={{ color: T.text, fontSize: '1rem', lineHeight: 1.7, margin: 0, fontFamily: "'Noto Sans Tamil', sans-serif" }}>{word.exampleTa}</p>
           <button onClick={() => speakTamil(word.exampleTa)}
             style={{ ...btn('ghost'), width: 'auto', padding: '7px 16px', fontSize: '0.8rem',
               marginTop: 12, color: T.gold, borderColor: '#f59e0b40' }}>🎙 Tamil Audio</button>
@@ -489,7 +489,7 @@ function TranslateStep({ sentence, onPass, onSkip }) {
         <div style={{ fontSize: '0.68rem', color: T.gold, letterSpacing: 3, marginBottom: 12, fontWeight: 800 }}>
           READ IN TAMIL — SAY IN ENGLISH
         </div>
-        <p style={{ color: T.gold, fontSize: '1.5rem', fontWeight: 700, lineHeight: 1.6, margin: '0 0 16px' }}>
+        <p style={{ color: T.gold, fontSize: '1.5rem', fontWeight: 700, lineHeight: 1.6, margin: '0 0 16px', fontFamily: "'Noto Sans Tamil', sans-serif" }}>
           {tamil}
         </p>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>

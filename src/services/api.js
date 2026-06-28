@@ -20,7 +20,8 @@ API.interceptors.request.use((config) => {
 API.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    // Only redirect on 401 for non-auth requests (login errors should show inline)
+    if (err.response?.status === 401 && !err.config?.url?.includes('/auth/')) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       window.location.href = '/login'
