@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   getMeaningQuestionsAdmin, getArrangeSentences,
-  getWordContent, getLessons, updateStreak
+  getWordContent, getLessons, updateStreak, completeLesson
 } from '../services/api'
 import { speak, speakTamil, listen, normalizeText, diffWords, isSpeechRecognitionSupported } from '../services/speechUtils'
 import { useAuth } from '../context/AuthContext'
@@ -762,6 +762,9 @@ export default function LessonPlay() {
   const [xp, setXp] = useState(0)
   const [lang, setLang] = useState('en')
   const [perfect, setPerfect] = useState(true)
+  const [correctCount, setCorrectCount] = useState(0)
+  const [wrongCount, setWrongCount]   = useState(0)
+  const startTimeRef = useRef(Date.now())
 
   useEffect(() => {
     const load = async () => {
@@ -848,8 +851,8 @@ export default function LessonPlay() {
   const addWrong = (step) => {
     setPerfect(false)
     setHearts(h => Math.max(0, h - 1))
-    const items = [step]
-    setWrongItems(w => [...w, ...items])
+    setWrongCount(c => c + 1)
+    setWrongItems(w => [...w, step])
   }
 
   const startRetry = () => {
@@ -859,11 +862,21 @@ export default function LessonPlay() {
     setPhase('retry')
   }
 
-  const gainXp = pts => setXp(x => x + pts)
+  const gainXp = (pts) => { setXp(x => x + pts); setCorrectCount(c => c + 1) }
 
   useEffect(() => {
-    if (phase === 'complete') {
-      updateStreak({ userId: user?.id || 0, xpEarned: xp }).catch(() => {})
+    if (phase !== 'complete') return
+    const uid = user?.userId || 0
+    const timeSpent = Math.round((Date.now() - startTimeRef.current) / 1000)
+    updateStreak({ userId: uid, xpEarned: xp }).catch(() => {})
+    if (uid > 0) {
+      completeLesson({
+        UserId: uid,
+        LessonId: parseInt(lessonId),
+        TimeSpentSeconds: timeSpent,
+        CorrectAnswers: correctCount,
+        WrongAnswers: wrongCount,
+      }).catch(() => {})
     }
   }, [phase])
 
