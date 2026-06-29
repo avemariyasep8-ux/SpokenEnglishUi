@@ -125,7 +125,7 @@ function IntroStep({ lessonName, description, onNext }) {
     setTimeout(() => speak(`Today we learn about ${lessonName}. ${description}. Let us begin!`), 600)
   }, [])
 
-  const steps = ['📝 Meaning & Use', '💬 Example Sentences', '✏️ Fill in Blank', '🧩 Arrange Words', '🌐 Translate', '✍️ Type Translation']
+  const steps = ['📝 Meaning & Use', '💬 Example Sentences', '✏️ Fill in Blank', '🧩 Arrange Words', '🌐 Translate']
   return (
     <motion.div initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }}
       style={{ ...glass(T.accent1, true), padding: '44px 32px', textAlign: 'center', maxWidth: 520, margin: '0 auto' }}>
@@ -430,133 +430,6 @@ function ArrangeStep({ sentence, lang, onCorrect, onWrong }) {
           ✓ Check
         </button>
       </div>
-    </motion.div>
-  )
-}
-
-// ── Step 4b: Typed Translation Exercise ──────────────────────────────────────
-// Shows Tamil sentence, user types English → evaluates with word-match scoring
-
-function TypedTranslateStep({ word, onCorrect, onWrong }) {
-  const tamil   = word.exampleTa || word.definitionTa || ''
-  const correct = word.exampleEn || word.definitionEn || ''
-  const [answer, setAnswer] = useState('')
-  const [result, setResult] = useState(null) // null | 'correct' | 'wrong' | 'partial'
-  const [score, setScore]   = useState(0)
-  const [checked, setChecked] = useState(false)
-  const [attempts, setAttempts] = useState(0)
-
-  const evaluate = () => {
-    if (!answer.trim()) return
-    const norm = s => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim()
-    const userWords   = norm(answer).split(/\s+/).filter(Boolean)
-    const targetWords = norm(correct).split(/\s+/).filter(Boolean)
-    const matched = targetWords.filter(w => userWords.includes(w)).length
-    const pct = Math.round((matched / targetWords.length) * 100)
-    setScore(pct)
-    setAttempts(a => a + 1)
-
-    if (pct === 100) {
-      setResult('correct')
-      speak('Excellent! Perfect translation!')
-      setTimeout(onCorrect, 1800)
-    } else if (pct >= 60) {
-      setResult('partial')
-      speak('Good effort! Check the correct answer.')
-      setChecked(true)
-    } else {
-      setResult('wrong')
-      speak('Not quite. Review the correct translation.')
-      setChecked(true)
-    }
-  }
-
-  const tryAgain = () => { setAnswer(''); setResult(null); setChecked(false) }
-
-  const wordDiff = () => {
-    const norm = s => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim()
-    const userWords   = new Set(norm(answer).split(/\s+/).filter(Boolean))
-    const targetWords = norm(correct).split(/\s+/).filter(Boolean)
-    return targetWords.map(w => ({ word: w, matched: userWords.has(w) }))
-  }
-
-  return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-      <StepLabel text="Translate to English" color="#a78bfa" />
-
-      {/* Tamil sentence */}
-      <div style={{ ...glass('#a78bfa', true), padding: '24px 26px', marginBottom: 16, textAlign: 'center' }}>
-        <div style={{ fontSize: '0.68rem', color: '#a78bfa', letterSpacing: 3, marginBottom: 10, fontWeight: 800 }}>
-          TAMIL → TYPE IN ENGLISH
-        </div>
-        <p style={{ color: '#e2e8f0', fontSize: '1.3rem', fontWeight: 700, lineHeight: 1.6, margin: '0 0 14px', fontFamily: "'Noto Sans Tamil', sans-serif" }}>
-          {tamil}
-        </p>
-        <button onClick={() => speakTamil(tamil)}
-          style={{ ...btn('ghost'), width: 'auto', padding: '7px 16px', fontSize: '0.8rem', color: '#f59e0b', borderColor: '#f59e0b40' }}>
-          🎙 Hear Tamil
-        </button>
-      </div>
-
-      {/* Type input */}
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: '0.75rem', color: T.muted, marginBottom: 6, fontWeight: 600 }}>Your English translation:</div>
-        <textarea
-          value={answer}
-          onChange={e => setAnswer(e.target.value)}
-          disabled={result === 'correct'}
-          placeholder="Type the English meaning here…"
-          rows={2}
-          style={{ width: '100%', padding: '12px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.06)',
-            border: `1.5px solid ${result === 'correct' ? T.accent3 : result ? T.danger : 'rgba(255,255,255,0.15)'}`,
-            color: T.text, fontSize: '1rem', outline: 'none', resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
-          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !checked) { e.preventDefault(); evaluate() } }}
-        />
-      </div>
-
-      {/* Result feedback */}
-      {result && (
-        <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-          style={{ ...glass(result === 'correct' ? T.accent3 : result === 'partial' ? '#f59e0b' : T.danger), padding: '14px 18px', marginBottom: 14 }}>
-          <div style={{ color: result === 'correct' ? T.accent3 : result === 'partial' ? '#f59e0b' : T.danger, fontWeight: 700, marginBottom: result !== 'correct' ? 8 : 0 }}>
-            {result === 'correct' ? `✅ Perfect! (${score}%)` : result === 'partial' ? `🟡 Partial match (${score}%)` : `❌ Needs work (${score}%)`}
-          </div>
-          {result !== 'correct' && (
-            <>
-              <div style={{ fontSize: '0.82rem', color: T.muted, marginBottom: 8 }}>Correct translation:</div>
-              <div style={{ fontSize: '0.95rem', color: T.text, fontStyle: 'italic', marginBottom: 10 }}>"{correct}"</div>
-              {/* Word-by-word diff */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {wordDiff().map((w, i) => (
-                  <span key={i} style={{ padding: '3px 10px', borderRadius: 6, fontSize: '0.82rem', fontWeight: 600,
-                    background: w.matched ? 'rgba(52,211,153,0.15)' : 'rgba(248,113,113,0.15)',
-                    color: w.matched ? T.accent3 : T.danger, border: `1px solid ${w.matched ? T.accent3 : T.danger}30` }}>
-                    {w.matched ? '✓' : '✗'} {w.word}
-                  </span>
-                ))}
-              </div>
-            </>
-          )}
-        </motion.div>
-      )}
-
-      {/* Actions */}
-      {!checked ? (
-        <button onClick={evaluate} disabled={!answer.trim()}
-          style={{ ...btn(answer.trim() ? 'primary' : 'ghost'), opacity: answer.trim() ? 1 : 0.45 }}>
-          ✓ Check Answer
-        </button>
-      ) : (
-        <div style={{ display: 'flex', gap: 10 }}>
-          {attempts < 3 && result !== 'correct' ? (
-            <button onClick={tryAgain} style={{ ...btn('outline'), flex: 1 }}>🔁 Try Again ({3 - attempts} left)</button>
-          ) : (
-            <button onClick={result === 'correct' ? onCorrect : onWrong} style={{ ...btn(result === 'partial' ? 'gold' : 'ghost'), flex: 1, color: result === 'partial' ? '#1a1a00' : T.muted }}>
-              {result === 'partial' ? '✓ Accept & Continue' : 'Skip →'}
-            </button>
-          )}
-        </div>
-      )}
     </motion.div>
   )
 }
@@ -937,10 +810,13 @@ export default function LessonPlay() {
         q.push({ type: 'translate', data: a })
       })
 
-      // Typed Translation: use word content that has both Tamil & English examples
+      // Voice translation from word content: Tamil example → speak English (same TranslateStep)
       const withBoth = wc.filter(w => w.exampleTa && w.exampleEn)
       shuffle(withBoth).slice(0, 3).forEach(w => {
-        q.push({ type: 'translate_typed', data: w })
+        q.push({ type: 'translate', data: {
+          tamilMeaning: w.exampleTa,
+          correctSentence: w.exampleEn,
+        }})
       })
 
       setMainQueue(q)
@@ -1075,11 +951,6 @@ export default function LessonPlay() {
                 <TranslateStep sentence={currentStep.data}
                   onPass={() => { gainXp(20); doNext() }}
                   onSkip={doNext} />
-              )}
-              {currentStep?.type === 'translate_typed' && (
-                <TypedTranslateStep word={currentStep.data}
-                  onCorrect={() => { gainXp(15); doNext() }}
-                  onWrong={() => { addWrong(currentStep); doNext() }} />
               )}
               {currentStep?.type === 'read' && (
                 <ReadStep sentence={currentStep.data} lang={lang}
