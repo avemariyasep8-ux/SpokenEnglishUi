@@ -137,4 +137,14 @@ export const adminSetLessonAccess  = (userId, lessonId, hasAccess) =>
 // ── Admin – Export CSV ────────────────────────────────────────────────────
 export const adminExportCsv        = (type) => API.get(`/admin/export/${type}`, { responseType: 'blob' })
 
+// ── Schools ───────────────────────────────────────────────────────────────────
+export const getSchools            = () => API.get('/school')
+export const createSchool          = (data) => API.post('/school', data)
+export const updateSchool          = (id, data) => API.put(`/school/${id}`, data)
+export const getSchoolUsers        = (schoolId) => API.get(`/school/${schoolId}/users`)
+export const getSchoolProgress     = (schoolId, teacherId) => API.get(`/school/${schoolId}/progress${teacherId ? `?teacherId=${teacherId}` : ''}`)
+export const getSchoolStats        = (schoolId) => API.get(`/school/${schoolId}/stats`)
+export const approveSchoolUser     = (schoolId, userId) => API.post(`/school/${schoolId}/users/${userId}/approve`)
+export const getWeeklyActivity     = (userId) => API.get(`/school/weekly-activity/${userId}`)
+
 export default API

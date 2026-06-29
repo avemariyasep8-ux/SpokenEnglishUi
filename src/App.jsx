@@ -19,21 +19,31 @@ import AdminBulkUpload from './pages/AdminBulkUpload'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminAddLesson from './pages/AdminAddLesson'
 import AdminLessonContent from './pages/AdminLessonContent'
+import AdminSchools from './pages/AdminSchools'
+import AdminSubscriptions from './pages/AdminSubscriptions'
 import Subscription from './pages/Subscription'
 
-// ── Private Route Wrapper ────────────────────────────
+// ── Route Wrappers ────────────────────────────────────
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return <div className="loading-center"><div className="spinner" /></div>
   return user ? children : <Navigate to="/login" />
 }
 
-// ── Admin-only Route Wrapper ──────────────────────────
 function AdminRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return <div className="loading-center"><div className="spinner" /></div>
   if (!user) return <Navigate to="/login" />
   if (user.role !== 'Admin') return <Navigate to="/dashboard" />
+  return children
+}
+
+function SchoolRoute({ children, roles }) {
+  const { user, loading } = useAuth()
+  if (loading) return <div className="loading-center"><div className="spinner" /></div>
+  if (!user) return <Navigate to="/login" />
+  const allowed = roles || ['Admin', 'Teacher', 'Headmaster']
+  if (!allowed.includes(user.role) && !allowed.includes(user.schoolRole)) return <Navigate to="/dashboard" />
   return children
 }
 
@@ -48,46 +58,31 @@ export default function App() {
           <Route path="/register" element={<Register />} />
 
           {/* Protected Routes */}
-          <Route path="/dashboard" element={
-            <PrivateRoute><Dashboard /></PrivateRoute>
-          } />
-          <Route path="/lessons" element={
-            <PrivateRoute><Lessons /></PrivateRoute>
-          } />
-          <Route path="/progress" element={
-            <PrivateRoute><Progress /></PrivateRoute>
-          } />
-          <Route path="/lesson/:lessonId/play" element={
-            <PrivateRoute><LessonPlay /></PrivateRoute>
-          } />
-          <Route path="/lesson/:lessonId/flow" element={
-            <PrivateRoute><LessonFlow /></PrivateRoute>
-          } />
+          <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+          <Route path="/lessons"   element={<PrivateRoute><Lessons /></PrivateRoute>} />
+          <Route path="/progress"  element={<PrivateRoute><Progress /></PrivateRoute>} />
+          <Route path="/lesson/:lessonId/play" element={<PrivateRoute><LessonPlay /></PrivateRoute>} />
+          <Route path="/lesson/:lessonId/flow" element={<PrivateRoute><LessonFlow /></PrivateRoute>} />
 
           {/* Activity Routes */}
-          <Route path="/meaning/:lessonId" element={
-            <PrivateRoute><WordMeaning /></PrivateRoute>
-          } />
-          <Route path="/arrange/:lessonId" element={
-            <PrivateRoute><ArrangeWord /></PrivateRoute>
-          } />
-          <Route path="/reading/:lessonId" element={
-            <PrivateRoute><Reading /></PrivateRoute>
-          } />
+          <Route path="/meaning/:lessonId" element={<PrivateRoute><WordMeaning /></PrivateRoute>} />
+          <Route path="/arrange/:lessonId" element={<PrivateRoute><ArrangeWord /></PrivateRoute>} />
+          <Route path="/reading/:lessonId" element={<PrivateRoute><Reading /></PrivateRoute>} />
 
           {/* Subscription */}
-          <Route path="/subscription" element={
-            <PrivateRoute><Subscription /></PrivateRoute>
-          } />
+          <Route path="/subscription" element={<PrivateRoute><Subscription /></PrivateRoute>} />
 
-          {/* Admin Routes — only accessible by role=Admin */}
-          <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-          <Route path="/admin/add-lesson" element={<AdminRoute><AdminAddLesson /></AdminRoute>} />
-          <Route path="/admin/lessons" element={<AdminRoute><AdminLessons /></AdminRoute>} />
+          {/* Admin Routes */}
+          <Route path="/admin"                          element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+          <Route path="/admin/add-lesson"               element={<AdminRoute><AdminAddLesson /></AdminRoute>} />
+          <Route path="/admin/lessons"                  element={<AdminRoute><AdminLessons /></AdminRoute>} />
           <Route path="/admin/lesson/:lessonId/content" element={<AdminRoute><AdminLessonContent /></AdminRoute>} />
-          <Route path="/admin/meaning/:lessonId" element={<AdminRoute><AdminMeaningQuestions /></AdminRoute>} />
-          <Route path="/admin/arrange/:lessonId" element={<AdminRoute><AdminArrangeSentences /></AdminRoute>} />
-          <Route path="/admin/bulk" element={<AdminRoute><AdminBulkUpload /></AdminRoute>} />
+          <Route path="/admin/meaning/:lessonId"        element={<AdminRoute><AdminMeaningQuestions /></AdminRoute>} />
+          <Route path="/admin/arrange/:lessonId"        element={<AdminRoute><AdminArrangeSentences /></AdminRoute>} />
+          <Route path="/admin/bulk"                     element={<AdminRoute><AdminBulkUpload /></AdminRoute>} />
+          <Route path="/admin/schools"                  element={<AdminRoute><AdminSchools /></AdminRoute>} />
+          <Route path="/admin/subscriptions"            element={<AdminRoute><AdminSubscriptions /></AdminRoute>} />
+
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </AuthProvider>

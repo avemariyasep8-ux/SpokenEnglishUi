@@ -18,12 +18,23 @@ const glass = (a = T.accent) => ({
   borderRadius: 18, backdropFilter: 'blur(12px)',
 })
 
+const LEVELS = ['All', 'Beginner', 'Elementary', 'Intermediate', 'College', 'Professional']
+const LEVEL_COLORS = {
+  Beginner: '#34d399', Elementary: '#38bdf8', Intermediate: '#818cf8',
+  College: '#fbbf24', Professional: '#fb923c',
+}
+const LEVEL_ICONS = {
+  All: '📚', Beginner: '🌱', Elementary: '📗', Intermediate: '📘',
+  College: '🎓', Professional: '💼',
+}
+
 export default function Lessons() {
   const { user, logout } = useAuth()
   const [lessons,    setLessons]    = useState([])
   const [loading,    setLoading]    = useState(true)
   const [search,     setSearch]     = useState('')
   const [hasPremium, setHasPremium] = useState(false)
+  const [activeLevel, setActiveLevel] = useState('All')
 
   useEffect(() => {
     Promise.all([
@@ -37,9 +48,11 @@ export default function Lessons() {
     ]).finally(() => setLoading(false))
   }, [user])
 
-  const filtered = lessons.filter(l =>
-    l.lessonName.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = lessons.filter(l => {
+    const matchSearch = l.lessonName.toLowerCase().includes(search.toLowerCase())
+    const matchLevel = activeLevel === 'All' || (l.level || 'Beginner') === activeLevel
+    return matchSearch && matchLevel
+  })
 
   const canAccess = (lesson) => !lesson.isPremium || hasPremium || user?.role === 'Admin'
 
@@ -84,7 +97,24 @@ export default function Lessons() {
               onChange={e => setSearch(e.target.value)}
               style={{ width: '100%', maxWidth: 400, padding: '11px 18px', borderRadius: 12,
                 background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-                color: T.text, fontSize: '0.9rem', outline: 'none', marginBottom: 32 }} />
+                color: T.text, fontSize: '0.9rem', outline: 'none', marginBottom: 18 }} />
+
+            {/* Level filter tabs */}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 28 }}>
+              {LEVELS.map(lvl => {
+                const count = lvl === 'All' ? lessons.length : lessons.filter(l => (l.level || 'Beginner') === lvl).length
+                const color = LEVEL_COLORS[lvl] || T.accent
+                const active = activeLevel === lvl
+                return (
+                  <button key={lvl} onClick={() => setActiveLevel(lvl)}
+                    style={{ padding: '7px 16px', borderRadius: 20, cursor: 'pointer', fontSize: '0.82rem', fontWeight: active ? 800 : 400, transition: 'all 0.15s',
+                      background: active ? color : 'rgba(255,255,255,0.05)', color: active ? '#000' : T.muted,
+                      border: `1.5px solid ${active ? color : 'rgba(255,255,255,0.08)'}` }}>
+                    {LEVEL_ICONS[lvl]} {lvl} {count > 0 && <span style={{ opacity: 0.7 }}>({count})</span>}
+                  </button>
+                )
+              })}
+            </div>
           </motion.div>
 
           {loading ? (
@@ -99,14 +129,17 @@ export default function Lessons() {
                     style={{ ...glass(accessible ? T.accent : T.gold), padding: '22px 22px 18px',
                       opacity: accessible ? 1 : 0.7, position: 'relative', overflow: 'hidden' }}>
 
-                    {/* Premium badge */}
-                    {l.isPremium && (
-                      <div style={{ position: 'absolute', top: 14, right: 14,
-                        background: 'linear-gradient(135deg,#fbbf24,#f59e0b)', borderRadius: 8,
-                        padding: '2px 10px', fontSize: '0.7rem', fontWeight: 800, color: '#1a1a00' }}>
-                        PREMIUM
-                      </div>
-                    )}
+                    {/* Level + Premium badge */}
+                    <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 4, flexDirection: 'column', alignItems: 'flex-end' }}>
+                      {l.isPremium && (
+                        <div style={{ background: 'linear-gradient(135deg,#fbbf24,#f59e0b)', borderRadius: 6, padding: '2px 8px', fontSize: '0.65rem', fontWeight: 800, color: '#1a1a00' }}>PREMIUM</div>
+                      )}
+                      {l.level && (
+                        <div style={{ background: `${LEVEL_COLORS[l.level] || T.accent}22`, border: `1px solid ${LEVEL_COLORS[l.level] || T.accent}40`, borderRadius: 6, padding: '2px 8px', fontSize: '0.65rem', fontWeight: 700, color: LEVEL_COLORS[l.level] || T.accent }}>
+                          {l.level}
+                        </div>
+                      )}
+                    </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                       <div style={{ width: 36, height: 36, borderRadius: '50%',

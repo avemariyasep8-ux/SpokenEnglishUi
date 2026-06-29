@@ -40,8 +40,10 @@ export default function AdminNav({ activePath }) {
       {/* Page links */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 0, flex: 1, overflowX: 'auto', scrollbarWidth: 'none' }}>
         {[
-          { to: '/admin',         label: '📊 Overview',  matchExact: true },
-          { to: '/admin/lessons', label: '📚 Lessons',   matchExact: false },
+          { to: '/admin',                  label: '📊 Overview',       matchExact: true },
+          { to: '/admin/lessons',          label: '📚 Lessons',        matchExact: false },
+          { to: '/admin/schools',          label: '🏫 Schools',        matchExact: false },
+          { to: '/admin/subscriptions',    label: '💳 Subscriptions',  matchExact: false },
         ].map(link => {
           const active = link.matchExact
             ? current === '/admin'
