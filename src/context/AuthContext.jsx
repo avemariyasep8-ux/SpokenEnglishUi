@@ -28,8 +28,8 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     const res = await apiLogin({ emailOrMob: email, password })
-    const { token: t, userID, email: userEmail, apiKey, role } = res.data
-    const userData = { userId: userID, email: userEmail, apiKey, role: role || decodeRole(t) }
+    const { token: t, userID, email: userEmail, apiKey, role, level } = res.data
+    const userData = { userId: userID, email: userEmail, apiKey, role: role || decodeRole(t), level: level || 'Beginner' }
     setToken(t)
     setUser(userData)
     localStorage.setItem('token', t)

@@ -206,8 +206,12 @@ function MeaningStep({ word, lang, onNext }) {
 // ── Step 3: Example Sentence ───────────────────────────────────────────────────
 
 function ExampleStep({ word, lang, onNext }) {
+  // Fall back to sentencePattern if exampleEn is missing
+  const exEn = word.exampleEn || word.sentencePattern || ''
+  const exTa = word.exampleTa || ''
+
   useEffect(() => {
-    setTimeout(() => speak(word.exampleEn), 700)
+    if (exEn) setTimeout(() => speak(exEn), 700)
   }, [word])
 
   const highlight = (text) => {
@@ -225,21 +229,28 @@ function ExampleStep({ word, lang, onNext }) {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
       <StepLabel text="Example Sentence" color={T.accent1} />
 
+      {word.sentencePattern && (
+        <div style={{ ...glass(T.accent2), padding: '10px 18px', marginBottom: 14, textAlign: 'center',
+          fontFamily: 'monospace', color: T.accent2, fontSize: '0.88rem' }}>
+          📐 Pattern: {word.sentencePattern}
+        </div>
+      )}
+
       <div style={{ ...glass(T.accent1, true), padding: '28px 28px', marginBottom: 16, textAlign: 'center' }}>
         <div style={{ fontSize: '0.7rem', color: T.muted, letterSpacing: 2, marginBottom: 14 }}>ENGLISH EXAMPLE</div>
         <p style={{ color: T.text, fontSize: '1.25rem', fontWeight: 600, lineHeight: 1.7, fontStyle: 'italic', margin: 0 }}>
-          "{highlight(word.exampleEn)}"
+          "{highlight(exEn)}"
         </p>
-        <SpeakRow text={word.exampleEn} onTamil={t => speakTamil(t)} />
+        <SpeakRow text={exEn} onTamil={t => speakTamil(t)} />
       </div>
 
-      {word.exampleTa && (
+      {exTa && (
         <div style={{ ...glass(T.gold), padding: '18px 24px', marginBottom: 16, textAlign: 'center' }}>
           <div style={{ fontSize: '0.68rem', fontWeight: 800, color: T.gold, letterSpacing: 2, marginBottom: 10 }}>
             தமிழ் மொழிபெயர்ப்பு (TAMIL)
           </div>
-          <p style={{ color: T.text, fontSize: '1rem', lineHeight: 1.7, margin: 0, fontFamily: "'Noto Sans Tamil', sans-serif" }}>{word.exampleTa}</p>
-          <button onClick={() => speakTamil(word.exampleTa)}
+          <p style={{ color: T.text, fontSize: '1rem', lineHeight: 1.7, margin: 0, fontFamily: "'Noto Sans Tamil', sans-serif" }}>{exTa}</p>
+          <button onClick={() => speakTamil(exTa)}
             style={{ ...btn('ghost'), width: 'auto', padding: '7px 16px', fontSize: '0.8rem',
               marginTop: 12, color: T.gold, borderColor: '#f59e0b40' }}>🎙 Tamil Audio</button>
         </div>
@@ -250,7 +261,6 @@ function ExampleStep({ word, lang, onNext }) {
         <span style={{ fontSize: '1.3rem' }}>💡</span>
         <span style={{ color: T.accent2, fontSize: '0.88rem', lineHeight: 1.5 }}>
           Notice <strong style={{ color: T.accent3 }}>{word.wordName}</strong> in the sentence.
-          {word.sentencePattern ? ` Pattern: ${word.sentencePattern}` : ''}
         </span>
       </div>
 

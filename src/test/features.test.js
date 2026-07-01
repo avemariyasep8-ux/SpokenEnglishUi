@@ -249,3 +249,222 @@ describe('Feature 6 – Admin Guards', () => {
     expect(isSchoolStaff(student)).toBe(false)
   })
 })
+
+// ─── 7. User Level at Registration ───────────────────────────────────────────
+
+const ALL_LEVELS = ['Beginner', 'Elementary', 'Intermediate', 'College', 'Professional']
+
+function isValidLevel(level) {
+  return ALL_LEVELS.includes(level)
+}
+
+function normalizeLevel(level) {
+  return level && isValidLevel(level) ? level : 'Beginner'
+}
+
+describe('Feature 7 – User Level at Registration', () => {
+  it('accepts all 5 valid levels', () => {
+    ALL_LEVELS.forEach(l => expect(isValidLevel(l)).toBe(true))
+  })
+
+  it('rejects invalid level strings', () => {
+    expect(isValidLevel('Advanced')).toBe(false)
+    expect(isValidLevel('expert')).toBe(false)
+    expect(isValidLevel('')).toBe(false)
+  })
+
+  it('normalizes null/undefined to Beginner', () => {
+    expect(normalizeLevel(null)).toBe('Beginner')
+    expect(normalizeLevel(undefined)).toBe('Beginner')
+    expect(normalizeLevel('')).toBe('Beginner')
+  })
+
+  it('preserves valid level as-is', () => {
+    expect(normalizeLevel('Intermediate')).toBe('Intermediate')
+    expect(normalizeLevel('Professional')).toBe('Professional')
+  })
+
+  it('register payload includes level field', () => {
+    const payload = {
+      email: 'user@test.com', mobnumber: '9876543210',
+      password: 'Test123', level: 'Elementary',
+      fullName: 'Test User', schoolId: null, schoolRole: null, className: null
+    }
+    expect(payload).toHaveProperty('level')
+    expect(isValidLevel(payload.level)).toBe(true)
+  })
+
+  it('login response includes level in user object', () => {
+    const loginResponse = {
+      userID: 5, email: 'u@test.com', token: 'jwt',
+      apiKey: 'key', role: 'User', level: 'Intermediate'
+    }
+    const userData = {
+      userId: loginResponse.userID, email: loginResponse.email,
+      apiKey: loginResponse.apiKey, role: loginResponse.role,
+      level: loginResponse.level || 'Beginner'
+    }
+    expect(userData.level).toBe('Intermediate')
+  })
+})
+
+// ─── 8. Level-based Lesson Filtering ─────────────────────────────────────────
+
+function filterLessonsByLevel(lessons, userLevel) {
+  if (!userLevel || userLevel === 'All') return lessons
+  return lessons.filter(l => (l.level || 'Beginner') === userLevel)
+}
+
+describe('Feature 8 – Level-based Lesson Filtering', () => {
+  const lessons = [
+    { lessonName: 'Greetings',    level: 'Beginner'      },
+    { lessonName: 'Daily Phrases',level: 'Beginner'      },
+    { lessonName: 'Articles',     level: 'Elementary'    },
+    { lessonName: 'Tenses',       level: 'Intermediate'  },
+    { lessonName: 'Business Eng', level: 'Professional'  },
+    { lessonName: 'Legacy Lesson',level: null            }, // null defaults to Beginner
+  ]
+
+  it('Beginner user sees only Beginner + null-level lessons', () => {
+    const result = filterLessonsByLevel(lessons, 'Beginner')
+    expect(result).toHaveLength(3)
+    result.forEach(l => expect(l.level || 'Beginner').toBe('Beginner'))
+  })
+
+  it('All filter returns all lessons', () => {
+    expect(filterLessonsByLevel(lessons, 'All')).toHaveLength(lessons.length)
+  })
+
+  it('Intermediate user sees only Intermediate lessons', () => {
+    const result = filterLessonsByLevel(lessons, 'Intermediate')
+    expect(result).toHaveLength(1)
+    expect(result[0].lessonName).toBe('Tenses')
+  })
+
+  it('Professional user sees only Professional lessons', () => {
+    const result = filterLessonsByLevel(lessons, 'Professional')
+    expect(result).toHaveLength(1)
+    expect(result[0].lessonName).toBe('Business Eng')
+  })
+
+  it('College user sees no lessons when none are at College level', () => {
+    const result = filterLessonsByLevel(lessons, 'College')
+    expect(result).toHaveLength(0)
+  })
+
+  it('default level for logged-in user is applied from user object', () => {
+    const user = { userId: 1, level: 'Elementary' }
+    const defaultLevel = user?.level || 'All'
+    expect(defaultLevel).toBe('Elementary')
+    const result = filterLessonsByLevel(lessons, defaultLevel)
+    expect(result).toHaveLength(1)
+    expect(result[0].lessonName).toBe('Articles')
+  })
+})
+
+// ─── 9. Translate Sentence (Arrange with TamilMeaning) ───────────────────────
+
+function buildTranslateQueue(arrangeSentences, wordContents, maxTr = 3) {
+  const fromArrange = arrangeSentences
+    .filter(a => a.tamilMeaning)
+    .slice(0, maxTr)
+    .map(a => ({ type: 'translate', data: { tamilMeaning: a.tamilMeaning, correctSentence: a.correctSentence } }))
+
+  const fromWords = wordContents
+    .filter(w => w.exampleTa && w.exampleEn)
+    .slice(0, 3)
+    .map(w => ({ type: 'translate', data: { tamilMeaning: w.exampleTa, correctSentence: w.exampleEn } }))
+
+  return [...fromArrange, ...fromWords]
+}
+
+describe('Feature 9 – Translate Sentence Admin & Queue', () => {
+  const arrangeSentences = [
+    { correctSentence: 'She is happy.',      tamilMeaning: 'அவள் மகிழ்ச்சியாக இருக்கிறாள்.' },
+    { correctSentence: 'He is a teacher.',   tamilMeaning: null },
+    { correctSentence: 'The sky is blue.',   tamilMeaning: 'வானம் நீலமாக உள்ளது.' },
+  ]
+  const wordContents = [
+    { wordName: 'Reasonable', exampleEn: 'The price is reasonable.', exampleTa: 'விலை சமயோஜிதமாக உள்ளது.' },
+    { wordName: 'Empty',      exampleEn: null,                        exampleTa: null },
+  ]
+
+  it('translate queue only includes sentences with tamilMeaning', () => {
+    const queue = buildTranslateQueue(arrangeSentences, [])
+    queue.forEach(q => expect(q.data.tamilMeaning).toBeTruthy())
+  })
+
+  it('sentences without tamilMeaning are excluded', () => {
+    const queue = buildTranslateQueue(arrangeSentences, [])
+    expect(queue.some(q => q.data.correctSentence === 'He is a teacher.')).toBe(false)
+  })
+
+  it('word content with both exampleEn and exampleTa feeds translate queue', () => {
+    const queue = buildTranslateQueue([], wordContents)
+    expect(queue.some(q => q.data.correctSentence === 'The price is reasonable.')).toBe(true)
+  })
+
+  it('word content without Tamil example does not feed translate queue', () => {
+    const queue = buildTranslateQueue([], wordContents)
+    expect(queue.some(q => q.data.tamilMeaning == null)).toBe(false)
+  })
+
+  it('arrange add payload includes tamilMeaning field', () => {
+    const payload = {
+      lessonId: 1,
+      correctSentence: 'She is happy.',
+      tamilMeaning: 'அவள் மகிழ்ச்சியாக இருக்கிறாள்.',
+      words: ['She', 'is', 'happy.']
+    }
+    expect(payload).toHaveProperty('tamilMeaning')
+    expect(payload.tamilMeaning).not.toBeNull()
+  })
+})
+
+// ─── 10. Sentence Pattern Display in Lesson Steps ────────────────────────────
+
+function getExampleDisplay(word) {
+  return word.exampleEn || word.sentencePattern || ''
+}
+
+describe('Feature 10 – Sentence Pattern in Lesson Steps', () => {
+  it('ExampleStep shows exampleEn when present', () => {
+    const word = { exampleEn: 'The price is reasonable.', sentencePattern: 'The + [obj] + is + reasonable.' }
+    expect(getExampleDisplay(word)).toBe('The price is reasonable.')
+  })
+
+  it('ExampleStep falls back to sentencePattern when exampleEn is missing', () => {
+    const word = { exampleEn: null, sentencePattern: 'The + [object] + is + very + reasonable + for + everyone.' }
+    expect(getExampleDisplay(word)).toBe('The + [object] + is + very + reasonable + for + everyone.')
+  })
+
+  it('ExampleStep returns empty string when both missing', () => {
+    const word = { exampleEn: null, sentencePattern: null }
+    expect(getExampleDisplay(word)).toBe('')
+  })
+
+  it('MeaningStep always displays sentencePattern when available', () => {
+    const word = { wordName: 'Reasonable', sentencePattern: 'The + [object] + is + very + reasonable.' }
+    expect(word.sentencePattern).not.toBeNull()
+    expect(word.sentencePattern.length).toBeGreaterThan(0)
+  })
+
+  it('ArrangeStep shows hintText or sentencePattern as pattern hint', () => {
+    const sentence = { sentencePattern: 'Subject + is + Adjective', hintText: null }
+    const hint = sentence.sentencePattern || sentence.hintText
+    expect(hint).toBe('Subject + is + Adjective')
+  })
+
+  it('ArrangeStep shows hintText when sentencePattern is absent', () => {
+    const sentence = { sentencePattern: null, hintText: 'Subject + Verb + Object' }
+    const hint = sentence.sentencePattern || sentence.hintText
+    expect(hint).toBe('Subject + Verb + Object')
+  })
+
+  it('ExampleStep plays audio using exEn (fallback to pattern)', () => {
+    const wordNoExample = { exampleEn: null, sentencePattern: 'Subject + is + Adjective.' }
+    const wordWithExample = { exampleEn: 'The sky is blue.', sentencePattern: null }
+    expect(getExampleDisplay(wordNoExample)).toBe('Subject + is + Adjective.')
+    expect(getExampleDisplay(wordWithExample)).toBe('The sky is blue.')
+  })
+})

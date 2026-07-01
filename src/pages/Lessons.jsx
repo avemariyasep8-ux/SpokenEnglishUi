@@ -34,7 +34,16 @@ export default function Lessons() {
   const [loading,    setLoading]    = useState(true)
   const [search,     setSearch]     = useState('')
   const [hasPremium, setHasPremium] = useState(false)
-  const [activeLevel, setActiveLevel] = useState('All')
+  const [activeLevel, setActiveLevel] = useState(() => {
+    try {
+      const stored = localStorage.getItem('user')
+      if (stored) {
+        const u = JSON.parse(stored)
+        if (u?.level) return u.level
+      }
+    } catch {}
+    return 'All'
+  })
 
   useEffect(() => {
     Promise.all([

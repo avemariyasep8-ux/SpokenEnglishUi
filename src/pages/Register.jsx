@@ -10,7 +10,7 @@ export default function Register() {
   const navigate = useNavigate()
   const [form, setForm] = useState({
     email: '', mobnumber: '', password: '', confirm: '',
-    fullName: '', schoolId: '', schoolRole: '', className: '',
+    fullName: '', schoolId: '', schoolRole: '', className: '', level: 'Beginner',
   })
   const [schools, setSchools] = useState([])
   const [showSchool, setShowSchool] = useState(false)
@@ -34,6 +34,7 @@ export default function Register() {
     try {
       await register(form.email, form.mobnumber, form.password, {
         fullName: form.fullName,
+        level: form.level,
         schoolId: showSchool && form.schoolId ? parseInt(form.schoolId) : null,
         schoolRole: showSchool ? form.schoolRole : null,
         className: showSchool ? form.className : null,
@@ -90,6 +91,19 @@ export default function Register() {
               <label style={lbl}>Confirm Password *</label>
               <input id="reg-confirm" style={inp} type="password" placeholder="Re-enter password" required
                 value={form.confirm} onChange={e => setForm({ ...form, confirm: e.target.value })} />
+            </div>
+
+            {/* Level selection */}
+            <div>
+              <label style={lbl}>Your English Level *</label>
+              <select value={form.level} onChange={e => setForm({ ...form, level: e.target.value })}
+                style={{ ...inp, cursor: 'pointer' }}>
+                <option value="Beginner">🌱 Beginner</option>
+                <option value="Elementary">📗 Elementary</option>
+                <option value="Intermediate">📘 Intermediate</option>
+                <option value="College">🎓 College</option>
+                <option value="Professional">💼 Professional</option>
+              </select>
             </div>
 
             {/* School toggle */}
