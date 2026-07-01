@@ -468,3 +468,63 @@ describe('Feature 10 – Sentence Pattern in Lesson Steps', () => {
     expect(getExampleDisplay(wordWithExample)).toBe('The sky is blue.')
   })
 })
+
+// ─── 11. Completed Lessons Disabled in Lesson List ───────────────────────────
+
+function buildCompletedIdSet(summary) {
+  return new Set((summary || []).filter(l => l.is_completed).map(l => Number(l.lessonid)))
+}
+
+function isLessonCompleted(lesson, completedIds) {
+  return completedIds.has(Number(lesson.lessonID))
+}
+
+describe('Feature 11 – Completed Lessons Disabled in List', () => {
+  const summary = [
+    { lessonid: 5,  is_completed: true,  total_attempts: 17 },
+    { lessonid: 1,  is_completed: false, total_attempts: 3  },
+    { lessonid: 2,  is_completed: false, total_attempts: 0  },
+  ]
+  const completedIds = buildCompletedIdSet(summary)
+
+  it('builds a set containing only completed lesson ids', () => {
+    expect(completedIds.has(5)).toBe(true)
+    expect(completedIds.has(1)).toBe(false)
+    expect(completedIds.size).toBe(1)
+  })
+
+  it('marks a completed lesson (matching by lessonID) as completed', () => {
+    const lesson = { lessonID: 5, lessonName: 'Food & Drink' }
+    expect(isLessonCompleted(lesson, completedIds)).toBe(true)
+  })
+
+  it('does not mark an uncompleted lesson as completed', () => {
+    const lesson = { lessonID: 1, lessonName: 'Greetings' }
+    expect(isLessonCompleted(lesson, completedIds)).toBe(false)
+  })
+
+  it('handles string vs number id mismatch via Number() coercion', () => {
+    const lesson = { lessonID: '5' }
+    expect(isLessonCompleted(lesson, completedIds)).toBe(true)
+  })
+
+  it('completed lesson shows disabled state, not a Start link', () => {
+    const lesson = { lessonID: 5 }
+    const completed = isLessonCompleted(lesson, completedIds)
+    const cta = completed ? 'Completed' : 'Start Lesson'
+    expect(cta).toBe('Completed')
+  })
+
+  it('re-practice is routed through Progress page, not the disabled card', () => {
+    // The list card links to /progress; actual replay happens from Progress "Practice"
+    const lesson = { lessonID: 5 }
+    const completed = isLessonCompleted(lesson, completedIds)
+    const practiceRoute = completed ? '/progress' : `/lesson/${lesson.lessonID}/play`
+    expect(practiceRoute).toBe('/progress')
+  })
+
+  it('empty summary yields no completed lessons', () => {
+    const ids = buildCompletedIdSet([])
+    expect(ids.size).toBe(0)
+  })
+})

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { getLessons, getMySubscription } from '../services/api'
+import { getLessons, getMySubscription, getLessonSummary } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 
 const LANGUAGE_ID = 1
@@ -34,6 +34,7 @@ export default function Lessons() {
   const [loading,    setLoading]    = useState(true)
   const [search,     setSearch]     = useState('')
   const [hasPremium, setHasPremium] = useState(false)
+  const [completedIds, setCompletedIds] = useState(() => new Set())
   const [activeLevel, setActiveLevel] = useState(() => {
     try {
       const stored = localStorage.getItem('user')
@@ -52,6 +53,13 @@ export default function Lessons() {
         ? getMySubscription(user.id).then(r => {
             const s = r.data
             setHasPremium(s?.status === 'active' || user?.role === 'Admin' || user?.role === 'Premium')
+          }).catch(() => {})
+        : Promise.resolve(),
+      // Mark completed lessons so their cards are disabled in the list
+      user?.userId
+        ? getLessonSummary(user.userId).then(r => {
+            const ids = new Set((r.data || []).filter(l => l.is_completed).map(l => Number(l.lessonid)))
+            setCompletedIds(ids)
           }).catch(() => {})
         : Promise.resolve(),
     ]).finally(() => setLoading(false))
@@ -132,6 +140,7 @@ export default function Lessons() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 18 }}>
               {filtered.map((l, i) => {
                 const accessible = canAccess(l)
+                const isCompleted = completedIds.has(Number(l.lessonID))
                 return (
                   <motion.div key={l.lessonID} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.04 }}
@@ -140,6 +149,9 @@ export default function Lessons() {
 
                     {/* Level + Premium badge */}
                     <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 4, flexDirection: 'column', alignItems: 'flex-end' }}>
+                      {isCompleted && (
+                        <div style={{ background: 'linear-gradient(135deg,#34d399,#059669)', borderRadius: 6, padding: '2px 8px', fontSize: '0.65rem', fontWeight: 800, color: '#fff' }}>✅ COMPLETED</div>
+                      )}
                       {l.isPremium && (
                         <div style={{ background: 'linear-gradient(135deg,#fbbf24,#f59e0b)', borderRadius: 6, padding: '2px 8px', fontSize: '0.65rem', fontWeight: 800, color: '#1a1a00' }}>PREMIUM</div>
                       )}
@@ -167,7 +179,20 @@ export default function Lessons() {
                       <div style={{ color: T.muted, fontSize: '0.82rem', lineHeight: 1.5, marginBottom: 14 }}>{l.description}</div>
                     )}
 
-                    {accessible ? (
+                    {isCompleted ? (
+                      <>
+                        <div style={{ display: 'block', textAlign: 'center', padding: '11px 20px', borderRadius: 11,
+                          background: 'rgba(52,211,153,0.12)', color: T.success, border: '1px solid rgba(52,211,153,0.3)',
+                          fontWeight: 700, fontSize: '0.88rem', cursor: 'not-allowed' }}>
+                          ✅ Completed
+                        </div>
+                        <Link to="/progress"
+                          style={{ display: 'block', textAlign: 'center', marginTop: 8, fontSize: '0.75rem',
+                            color: T.muted, textDecoration: 'none' }}>
+                          🔄 Practice again from Progress →
+                        </Link>
+                      </>
+                    ) : accessible ? (
                       <Link to={`/lesson/${l.lessonID}/play`}
                         state={{ lessonName: l.lessonName, description: l.description }}
                         style={{ display: 'block', textAlign: 'center', padding: '11px 20px', borderRadius: 11,
