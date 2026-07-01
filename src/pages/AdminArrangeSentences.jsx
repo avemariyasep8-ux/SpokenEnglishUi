@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { getArrangeSentences, addArrangeSentence, deleteArrangeSentence } from '../services/api'
+import { getArrangeSentences, adminAddArrange, adminDeleteArrange } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import AdminNav from '../components/AdminNav'
 
@@ -39,13 +39,11 @@ export default function AdminArrangeSentences() {
     e.preventDefault()
     try {
       const payload = {
-        lessonID: parseInt(lessonId),
-        languageID: LANGUAGE_ID,
+        lessonId: parseInt(lessonId),
         correctSentence: form.correctSentence,
-        tamilMeaning: form.tamilMeaning,
-        words: form.words.split(',').map(s => s.trim()).filter(s => s !== '')
+        tamilMeaning: form.tamilMeaning || null,
       }
-      await addArrangeSentence(payload)
+      await adminAddArrange(payload)
       setShowModal(false)
       setForm({ correctSentence: '', tamilMeaning: '', words: '' })
       fetchSentences()
@@ -57,7 +55,7 @@ export default function AdminArrangeSentences() {
   const handleDelete = async (sid) => {
     if (!window.confirm('Are you sure you want to delete this sentence?')) return
     try {
-      await deleteArrangeSentence(sid)
+      await adminDeleteArrange(sid)
       fetchSentences()
     } catch (err) {
       alert('Error deleting sentence')

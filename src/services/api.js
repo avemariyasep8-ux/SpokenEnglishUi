@@ -69,6 +69,17 @@ export const deleteArrangeSentence = (id) => API.delete(`/arrange/${id}`)
 export const getReadingSentences = (lessonId, languageId) =>
   API.get(`/reading/${lessonId}/${languageId}`)
 
+// ── Admin – Reading sentences CRUD ─────────────────────
+export const adminGetReading    = (lessonId) => API.get(`/admin/reading/${lessonId}`)
+export const adminAddReading    = (data) => API.post('/admin/reading', data)
+export const adminUpdateReading = (id, data) => API.put(`/admin/reading/${id}`, data)
+export const adminDeleteReading = (id) => API.delete(`/admin/reading/${id}`)
+
+// ── Admin – Arrange/Translate CRUD (persists tamilMeaning) ──
+export const adminAddArrange    = (data) => API.post('/admin/arrange', data)
+export const adminUpdateArrange = (id, data) => API.put(`/admin/arrange/${id}`, data)
+export const adminDeleteArrange = (id) => API.delete(`/admin/arrange/${id}`)
+
 // ── Progress ──────────────────────────────────────────
 export const saveAnswer        = (data)              => API.post('/progress/answer', data)
 export const getUserProgress   = (userId, languageId)=> API.get(`/progress/${userId}/${languageId}`)
@@ -104,6 +115,8 @@ export const importLessons    = (file) => { const fd = new FormData(); fd.append
 export const importWordContent= (file) => { const fd = new FormData(); fd.append('file', file); return API.post('/admin/import/wordcontent', fd, { headers: { 'Content-Type': 'multipart/form-data' } }) }
 export const importMcq        = (file) => { const fd = new FormData(); fd.append('file', file); return API.post('/admin/import/mcq', fd, { headers: { 'Content-Type': 'multipart/form-data' } }) }
 export const importArrange    = (file) => { const fd = new FormData(); fd.append('file', file); return API.post('/admin/import/arrange', fd, { headers: { 'Content-Type': 'multipart/form-data' } }) }
+export const importTranslate  = (file) => { const fd = new FormData(); fd.append('file', file); return API.post('/admin/import/arrange', fd, { headers: { 'Content-Type': 'multipart/form-data' } }) }
+export const importReading    = (file) => { const fd = new FormData(); fd.append('file', file); return API.post('/admin/import/reading', fd, { headers: { 'Content-Type': 'multipart/form-data' } }) }
 export const getLessonStats        = () => API.get('/admin/lesson-stats')
 export const grantUserAccess       = (id, grant) => API.post(`/admin/users/${id}/grant-access`, { grant })
 

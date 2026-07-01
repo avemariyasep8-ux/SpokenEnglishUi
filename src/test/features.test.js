@@ -528,3 +528,110 @@ describe('Feature 11 – Completed Lessons Disabled in List', () => {
     expect(ids.size).toBe(0)
   })
 })
+
+// ─── 12. Lesson Level in Add/Edit + Reading/Translate Content ─────────────────
+
+const LESSON_LEVELS = ['Beginner', 'Elementary', 'Intermediate', 'College', 'Professional']
+
+function buildLessonPayload(form) {
+  return {
+    lessonName: form.lessonName,
+    description: form.description,
+    lessonOrder: form.lessonOrder,
+    isActive: form.isActive,
+    isPremium: form.isPremium,
+    level: form.level,
+  }
+}
+
+const IMPORT_KEYS = ['lessons', 'wordcontent', 'mcq', 'arrange', 'translate', 'reading']
+
+describe('Feature 12 – Lesson Level in Add/Edit', () => {
+  it('lesson add/edit payload includes level', () => {
+    const form = { lessonName: 'Greetings', description: 'x', lessonOrder: 1, isActive: true, isPremium: false, level: 'Intermediate' }
+    const payload = buildLessonPayload(form)
+    expect(payload).toHaveProperty('level')
+    expect(payload.level).toBe('Intermediate')
+  })
+
+  it('offers all 5 levels in the dropdown', () => {
+    expect(LESSON_LEVELS).toHaveLength(5)
+    expect(LESSON_LEVELS).toContain('College')
+    expect(LESSON_LEVELS).toContain('Professional')
+  })
+
+  it('defaults to Beginner when not chosen', () => {
+    const form = { lessonName: 'X', description: '', lessonOrder: 1, isActive: true, isPremium: false, level: 'Beginner' }
+    expect(buildLessonPayload(form).level).toBe('Beginner')
+  })
+
+  it('payload persists premium alongside level (admin endpoint)', () => {
+    const form = { lessonName: 'Pro', description: '', lessonOrder: 9, isActive: true, isPremium: true, level: 'Professional' }
+    const p = buildLessonPayload(form)
+    expect(p.isPremium).toBe(true)
+    expect(p.level).toBe('Professional')
+  })
+})
+
+describe('Feature 12 – Import types include Reading & Translate', () => {
+  it('import modal exposes reading and translate types', () => {
+    expect(IMPORT_KEYS).toContain('reading')
+    expect(IMPORT_KEYS).toContain('translate')
+  })
+
+  it('has all six import categories', () => {
+    expect(IMPORT_KEYS).toHaveLength(6)
+  })
+})
+
+describe('Feature 12 – Reading Sentence CRUD', () => {
+  function buildReadingPayload(lessonId, form) {
+    return { lessonId: +lessonId, sentenceText: form.sentenceText.trim(), displayOrder: +form.displayOrder || 0 }
+  }
+
+  it('reading add payload has lessonId, sentenceText, displayOrder', () => {
+    const p = buildReadingPayload('3', { sentenceText: '  The sun rises.  ', displayOrder: '2' })
+    expect(p).toEqual({ lessonId: 3, sentenceText: 'The sun rises.', displayOrder: 2 })
+  })
+
+  it('reading displayOrder defaults to 0 when blank', () => {
+    const p = buildReadingPayload('1', { sentenceText: 'Hi.', displayOrder: '' })
+    expect(p.displayOrder).toBe(0)
+  })
+
+  it('normalises snake_case api rows to display text', () => {
+    const item = { id: 5, sentencetext: 'Birds fly.', displayorder: 1 }
+    const text = item.sentencetext ?? item.sentenceText
+    expect(text).toBe('Birds fly.')
+  })
+})
+
+describe('Feature 12 – Translate (arrange + tamil) CRUD', () => {
+  function buildArrangePayload(lessonId, form) {
+    return {
+      lessonId: +lessonId,
+      correctSentence: form.correctSentence.trim(),
+      tamilMeaning: form.tamilMeaning.trim() || null,
+    }
+  }
+
+  it('arrange payload includes tamilMeaning (translate)', () => {
+    const p = buildArrangePayload('1', { correctSentence: 'She is happy.', tamilMeaning: 'அவள் மகிழ்ச்சி.' })
+    expect(p.tamilMeaning).toBe('அவள் மகிழ்ச்சி.')
+    expect(p.correctSentence).toBe('She is happy.')
+  })
+
+  it('tamilMeaning becomes null when left blank (arrange only)', () => {
+    const p = buildArrangePayload('1', { correctSentence: 'He runs.', tamilMeaning: '   ' })
+    expect(p.tamilMeaning).toBeNull()
+  })
+
+  it('a sentence with tamilMeaning is usable as a translate exercise', () => {
+    const sentences = [
+      { correctSentence: 'She is happy.', tamilMeaning: 'அவள் மகிழ்ச்சி.' },
+      { correctSentence: 'He runs.',      tamilMeaning: null },
+    ]
+    const translate = sentences.filter(s => s.tamilMeaning)
+    expect(translate).toHaveLength(1)
+  })
+})

@@ -6,7 +6,8 @@ import {
   getWordContent, addWordContent, updateWordContent, deleteWordContent,
   getMeaningQuestionsAdmin, addMeaningQuestion, updateMeaningQuestion, deleteMeaningQuestion,
   addMeaningOption, updateMeaningOption, deleteMeaningOption,
-  getArrangeSentences, addArrangeSentence, deleteArrangeSentence,
+  getArrangeSentences, adminAddArrange, adminUpdateArrange, adminDeleteArrange,
+  adminGetReading, adminAddReading, adminUpdateReading, adminDeleteReading,
   getLessonDetail,
 } from '../services/api'
 
@@ -272,11 +273,12 @@ function AddOptionInline({ qId, onAdd }) {
   )
 }
 
-// ─── Arrange Tab ─────────────────────────────────────────────────────────────
+// ─── Arrange / Translate Tab ─────────────────────────────────────────────────
+// One arrange sentence doubles as a translate item when it has a Tamil meaning.
 function ArrangeTab({ lessonId, flash }) {
   const [sentences, setSentences] = useState([])
-  const [adding, setAdding] = useState(false)
-  const [newText, setNewText] = useState('')
+  const [editing, setEditing] = useState(null)   // 'new' | id | null
+  const [form, setForm] = useState({ correctSentence: '', tamilMeaning: '' })
 
   const load = useCallback(async () => {
     const r = await getArrangeSentences(lessonId, LANG)
@@ -285,33 +287,50 @@ function ArrangeTab({ lessonId, flash }) {
 
   useEffect(() => { load() }, [load])
 
-  const add = async () => {
-    if (!newText.trim()) return
-    await addArrangeSentence({ LessonId: +lessonId, LanguageId: LANG, CorrectSentence: newText })
-    flash('Arrange sentence added'); setNewText(''); setAdding(false); load()
+  const openNew = () => { setEditing('new'); setForm({ correctSentence: '', tamilMeaning: '' }) }
+  const openEdit = (s) => {
+    setEditing(s.arrangeSentenceID)
+    setForm({ correctSentence: s.correctSentence || '', tamilMeaning: s.tamilMeaning || '' })
+  }
+
+  const save = async () => {
+    if (!form.correctSentence.trim()) return
+    const payload = {
+      lessonId: +lessonId,
+      correctSentence: form.correctSentence.trim(),
+      tamilMeaning: form.tamilMeaning.trim() || null,
+    }
+    if (editing === 'new') { await adminAddArrange(payload); flash('Sentence added') }
+    else { await adminUpdateArrange(editing, payload); flash('Sentence updated') }
+    setEditing(null); load()
   }
 
   const del = async (id) => {
-    if (!confirm('Delete this arrange sentence?')) return
-    await deleteArrangeSentence(id); flash('Deleted'); load()
+    if (!confirm('Delete this sentence?')) return
+    await adminDeleteArrange(id); flash('Deleted'); load()
   }
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <span style={{ color: T.muted, fontSize: '0.88rem' }}>{sentences.length} sentences</span>
-        <button style={btn('linear-gradient(135deg,#38bdf8,#818cf8)')} onClick={() => setAdding(true)}>+ Add Sentence</button>
+        <span style={{ color: T.muted, fontSize: '0.88rem' }}>{sentences.length} sentences · add a Tamil meaning to also use it as a Translate exercise</span>
+        <button style={btn('linear-gradient(135deg,#38bdf8,#818cf8)')} onClick={openNew}>+ Add Sentence</button>
       </div>
 
-      {adding && (
+      {editing && (
         <div style={{ ...glass(T.accent), marginBottom: 20 }}>
-          <div style={{ color: T.muted, fontSize: '0.78rem', marginBottom: 6 }}>Correct Sentence (words will be auto-split and shuffled)</div>
-          <input value={newText} onChange={e => setNewText(e.target.value)}
+          <h3 style={{ marginBottom: 14, color: T.accent }}>{editing === 'new' ? 'Add Sentence' : 'Edit Sentence'}</h3>
+          <div style={{ color: T.muted, fontSize: '0.78rem', marginBottom: 6 }}>Correct Sentence (English — words auto-split & shuffled)</div>
+          <input value={form.correctSentence} onChange={e => setForm(f => ({ ...f, correctSentence: e.target.value }))}
             placeholder="I drink coffee every morning"
             style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', color: T.text, marginBottom: 12, boxSizing: 'border-box' }} />
+          <div style={{ color: T.muted, fontSize: '0.78rem', marginBottom: 6 }}>Tamil Meaning (optional — enables the 🌐 Translate exercise)</div>
+          <input value={form.tamilMeaning} onChange={e => setForm(f => ({ ...f, tamilMeaning: e.target.value }))}
+            placeholder="நான் காலையில் காபி குடிக்கிறேன்"
+            style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', color: T.text, marginBottom: 12, boxSizing: 'border-box', fontFamily: "'Noto Sans Tamil', sans-serif" }} />
           <div style={{ display: 'flex', gap: 10 }}>
-            <button style={btn(T.success)} onClick={add}>Add</button>
-            <button style={btn('rgba(255,255,255,0.08)', T.muted)} onClick={() => setAdding(false)}>Cancel</button>
+            <button style={btn(T.success)} onClick={save}>Save</button>
+            <button style={btn('rgba(255,255,255,0.08)', T.muted)} onClick={() => setEditing(null)}>Cancel</button>
           </div>
         </div>
       )}
@@ -321,6 +340,11 @@ function ArrangeTab({ lessonId, flash }) {
           <div key={s.arrangeSentenceID} style={{ ...glass(T.success), display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 600, marginBottom: 6 }}>{s.correctSentence}</div>
+              {s.tamilMeaning && (
+                <div style={{ color: T.gold, fontSize: '0.82rem', marginBottom: 6, fontFamily: "'Noto Sans Tamil', sans-serif" }}>
+                  🌐 {s.tamilMeaning}
+                </div>
+              )}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {(s.words ?? []).map(w => (
                   <span key={w.wordID} style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.2)', borderRadius: 6, padding: '2px 8px', fontSize: '0.8rem', color: T.success }}>
@@ -329,10 +353,88 @@ function ArrangeTab({ lessonId, flash }) {
                 ))}
               </div>
             </div>
-            <button style={btn('rgba(248,113,113,0.15)', T.danger)} onClick={() => del(s.arrangeSentenceID)}>Del</button>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button style={btn('rgba(56,189,248,0.15)', T.accent)} onClick={() => openEdit(s)}>Edit</button>
+              <button style={btn('rgba(248,113,113,0.15)', T.danger)} onClick={() => del(s.arrangeSentenceID)}>Del</button>
+            </div>
           </div>
         ))}
-        {!sentences.length && <div style={{ color: T.muted, textAlign: 'center', padding: 32 }}>No arrange sentences yet.</div>}
+        {!sentences.length && <div style={{ color: T.muted, textAlign: 'center', padding: 32 }}>No sentences yet.</div>}
+      </div>
+    </div>
+  )
+}
+
+// ─── Reading Tab ─────────────────────────────────────────────────────────────
+function ReadingTab({ lessonId, flash }) {
+  const [items, setItems] = useState([])
+  const [editing, setEditing] = useState(null)   // 'new' | id | null
+  const [form, setForm] = useState({ sentenceText: '', displayOrder: 0 })
+
+  const load = useCallback(async () => {
+    const r = await adminGetReading(lessonId)
+    setItems(r.data ?? [])
+  }, [lessonId])
+
+  useEffect(() => { load() }, [load])
+
+  const openNew = () => { setEditing('new'); setForm({ sentenceText: '', displayOrder: items.length + 1 }) }
+  const openEdit = (item) => {
+    setEditing(item.id)
+    setForm({ sentenceText: item.sentencetext ?? item.sentenceText ?? '', displayOrder: item.displayorder ?? item.displayOrder ?? 0 })
+  }
+
+  const save = async () => {
+    if (!form.sentenceText.trim()) return
+    const payload = { lessonId: +lessonId, sentenceText: form.sentenceText.trim(), displayOrder: +form.displayOrder || 0 }
+    if (editing === 'new') { await adminAddReading(payload); flash('Reading sentence added') }
+    else { await adminUpdateReading(editing, payload); flash('Reading sentence updated') }
+    setEditing(null); load()
+  }
+
+  const del = async (id) => {
+    if (!confirm('Delete this reading sentence?')) return
+    await adminDeleteReading(id); flash('Deleted'); load()
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <span style={{ color: T.muted, fontSize: '0.88rem' }}>{items.length} reading sentences</span>
+        <button style={btn('linear-gradient(135deg,#38bdf8,#818cf8)')} onClick={openNew}>+ Add Reading</button>
+      </div>
+
+      {editing && (
+        <div style={{ ...glass(T.accent), marginBottom: 20 }}>
+          <h3 style={{ marginBottom: 14, color: T.accent }}>{editing === 'new' ? 'Add Reading Sentence' : 'Edit Reading Sentence'}</h3>
+          <div style={{ color: T.muted, fontSize: '0.78rem', marginBottom: 6 }}>Sentence to read aloud</div>
+          <textarea value={form.sentenceText} onChange={e => setForm(f => ({ ...f, sentenceText: e.target.value }))}
+            rows={2} placeholder="The sun rises in the east."
+            style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', color: T.text, marginBottom: 12, boxSizing: 'border-box', resize: 'vertical' }} />
+          <div style={{ color: T.muted, fontSize: '0.78rem', marginBottom: 6 }}>Display Order</div>
+          <input type="number" value={form.displayOrder} onChange={e => setForm(f => ({ ...f, displayOrder: e.target.value }))}
+            style={{ width: 120, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', color: T.text, marginBottom: 12, boxSizing: 'border-box' }} />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button style={btn(T.success)} onClick={save}>Save</button>
+            <button style={btn('rgba(255,255,255,0.08)', T.muted)} onClick={() => setEditing(null)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gap: 12 }}>
+        {items.map(item => {
+          const text = item.sentencetext ?? item.sentenceText
+          return (
+            <div key={item.id} style={{ ...glass(T.success), display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ flex: 1, fontWeight: 600 }}>{text}</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button style={btn('rgba(56,189,248,0.15)', T.accent)} onClick={() => openEdit(item)}>Edit</button>
+                <button style={btn('rgba(248,113,113,0.15)', T.danger)} onClick={() => del(item.id)}>Del</button>
+              </div>
+            </div>
+          )
+        })}
+        {!items.length && <div style={{ color: T.muted, textAlign: 'center', padding: 32 }}>No reading sentences yet.</div>}
       </div>
     </div>
   )
@@ -360,7 +462,8 @@ export default function AdminLessonContent() {
   const tabs = [
     { id: 'words',   label: '📖 Word Content' },
     { id: 'mcq',     label: '❓ MCQ Questions' },
-    { id: 'arrange', label: '🔀 Arrange Sentences' },
+    { id: 'arrange', label: '🔀 Arrange / 🌐 Translate' },
+    { id: 'reading', label: '📢 Reading Sentences' },
   ]
 
   return (
@@ -388,6 +491,7 @@ export default function AdminLessonContent() {
         {tab === 'words'   && <WordContentTab lessonId={lessonId} flash={flash} />}
         {tab === 'mcq'     && <MCQTab         lessonId={lessonId} flash={flash} />}
         {tab === 'arrange' && <ArrangeTab      lessonId={lessonId} flash={flash} />}
+        {tab === 'reading' && <ReadingTab      lessonId={lessonId} flash={flash} />}
       </div>
     </div>
   )

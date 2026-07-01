@@ -2,13 +2,17 @@ import { useEffect, useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  getLessons, addLesson, updateLesson, deleteLesson, getLessonStats,
+  getLessons, deleteLesson, getLessonStats,
+  adminCreateLesson, adminUpdateLesson,
   downloadTemplate, importLessons, importWordContent, importMcq, importArrange,
+  importTranslate, importReading,
 } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import AdminNav from '../components/AdminNav'
 
 const LANG = 1
+const LEVELS = ['Beginner', 'Elementary', 'Intermediate', 'College', 'Professional']
+const LEVEL_ICONS = { Beginner: '🌱', Elementary: '📗', Intermediate: '📘', College: '🎓', Professional: '💼' }
 
 const T = {
   bg: '#080c14', card: 'rgba(12,20,36,0.97)',
@@ -27,10 +31,12 @@ const btn = (color = T.accent, bg = null) => ({
 })
 
 const IMPORT_TYPES = [
-  { key: 'lessons',     label: 'Lessons',      icon: '📚', color: T.accent,  desc: 'LessonOrder, LessonName, Description, IsPremium',   fn: importLessons },
+  { key: 'lessons',     label: 'Lessons',      icon: '📚', color: T.accent,  desc: 'LessonOrder, LessonName, Description, IsPremium, Level',   fn: importLessons },
   { key: 'wordcontent', label: 'Word Content',  icon: '📖', color: T.success, desc: 'LessonId, WordName, SentencePattern, DefinitionEn, DefinitionTa, ExampleEn, ExampleTa', fn: importWordContent },
   { key: 'mcq',         label: 'MCQ Questions', icon: '✏️', color: T.purple,  desc: 'LessonId, QuestionText, Option1, Option2, Option3, Option4, CorrectOption(1-4)', fn: importMcq },
-  { key: 'arrange',     label: 'Arrange Words', icon: '🧩', color: T.orange,  desc: 'LessonId, Sentence, HintText', fn: importArrange },
+  { key: 'arrange',     label: 'Arrange Words', icon: '🧩', color: T.orange,  desc: 'LessonId, CorrectSentence, TamilMeaning', fn: importArrange },
+  { key: 'translate',   label: 'Translate',     icon: '🌐', color: T.gold,    desc: 'LessonId, CorrectSentence, TamilMeaning', fn: importTranslate },
+  { key: 'reading',     label: 'Reading',       icon: '📢', color: T.danger,  desc: 'LessonId, SentenceText, DisplayOrder', fn: importReading },
 ]
 
 function ImportModal({ onClose }) {
@@ -145,7 +151,7 @@ export default function AdminLessons() {
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(null) // { type: 'add'|'edit', lesson? }
   const [importOpen, setImportOpen] = useState(false)
-  const [form, setForm] = useState({ lessonName: '', description: '', lessonTypeID: 1, lessonOrder: 1, isActive: true, isPremium: false })
+  const [form, setForm] = useState({ lessonName: '', description: '', lessonTypeID: 1, lessonOrder: 1, isActive: true, isPremium: false, level: 'Beginner' })
   const [msg, setMsg] = useState('')
 
   useEffect(() => { load() }, [])
@@ -173,22 +179,28 @@ export default function AdminLessons() {
       lessonID: lesson.lessonID, lessonName: lesson.lessonName,
       description: lesson.description || '', lessonTypeID: lesson.lessonTypeID || 1,
       lessonOrder: lesson.lessonOrder, isActive: lesson.isActive ?? true,
-      isPremium: lesson.isPremium ?? false, languageID: LANG,
+      isPremium: lesson.isPremium ?? false, level: lesson.level || 'Beginner', languageID: LANG,
     })
     setModal({ type: 'edit', lesson })
   }
 
   const openAdd = () => {
     setForm({ lessonName: '', description: '', lessonTypeID: 1,
-      lessonOrder: lessons.length + 1, isActive: true, isPremium: false, languageID: LANG })
+      lessonOrder: lessons.length + 1, isActive: true, isPremium: false, level: 'Beginner', languageID: LANG })
     setModal({ type: 'add' })
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    // Admin endpoints persist level + premium (the /lessons path does not).
+    const payload = {
+      lessonName: form.lessonName, description: form.description,
+      lessonOrder: form.lessonOrder, isActive: form.isActive,
+      isPremium: form.isPremium, level: form.level,
+    }
     try {
-      if (modal.type === 'add') await addLesson(form)
-      else await updateLesson(form)
+      if (modal.type === 'add') await adminCreateLesson(payload)
+      else await adminUpdateLesson(form.lessonID, payload)
       setModal(null); load(); flash('Lesson saved!')
     } catch { flash('Error saving lesson') }
   }
@@ -261,7 +273,7 @@ export default function AdminLessons() {
               <div style={{ fontWeight: 700, color: T.gold, fontSize: '0.9rem', marginBottom: 2 }}>Bulk Import with CSV</div>
               <div style={{ color: T.muted, fontSize: '0.82rem' }}>
                 Click "Import Data" → select type → download template → fill in data → upload.
-                Supports: Lessons, Word Content, MCQ Questions, Arrange Sentences.
+                Supports: Lessons (with Level), Word Content, MCQ, Arrange, Translate, Reading.
               </div>
             </div>
           </div>
@@ -274,7 +286,7 @@ export default function AdminLessons() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                    {['#','Lesson Name','Type','Words','MCQ','Arrange','Status','Actions'].map(h => (
+                    {['#','Lesson Name','Level','Words','MCQ','Arrange','Translate','Reading','Status','Actions'].map(h => (
                       <th key={h} style={{ padding: '12px 14px', textAlign: 'left',
                         color: T.muted, fontWeight: 700, fontSize: '0.75rem', letterSpacing: 1, textTransform: 'uppercase' }}>
                         {h}
@@ -305,7 +317,7 @@ export default function AdminLessons() {
                         <td style={{ padding: '12px 14px' }}>
                           <span style={{ background: 'rgba(129,140,248,0.12)', color: T.purple,
                             borderRadius: 6, padding: '3px 10px', fontSize: '0.78rem', fontWeight: 700 }}>
-                            {l.typeName || 'Vocab'}
+                            {LEVEL_ICONS[l.level] || '🌱'} {l.level || 'Beginner'}
                           </span>
                         </td>
                         <td style={{ padding: '12px 14px', color: s.wordcount > 0 ? T.success : T.danger, fontWeight: 700 }}>
@@ -316,6 +328,12 @@ export default function AdminLessons() {
                         </td>
                         <td style={{ padding: '12px 14px', color: s.arrangecount > 0 ? T.orange : T.danger, fontWeight: 700 }}>
                           {s.arrangecount ?? '—'}
+                        </td>
+                        <td style={{ padding: '12px 14px', color: s.translatecount > 0 ? T.gold : T.danger, fontWeight: 700 }}>
+                          {s.translatecount ?? '—'}
+                        </td>
+                        <td style={{ padding: '12px 14px', color: s.readingcount > 0 ? T.accent : T.danger, fontWeight: 700 }}>
+                          {s.readingcount ?? '—'}
                         </td>
                         <td style={{ padding: '12px 14px' }}>
                           <span style={{ color: l.isActive ? T.success : T.muted, fontWeight: 700, fontSize: '0.82rem' }}>
@@ -396,6 +414,17 @@ export default function AdminLessons() {
                       style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.06)',
                         border: '1px solid rgba(255,255,255,0.12)', color: T.text, outline: 'none', boxSizing: 'border-box' }} />
                   </div>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: T.muted, display: 'block', marginBottom: 6 }}>
+                    LEVEL
+                  </label>
+                  <select value={form.level}
+                    onChange={e => setForm({...form, level: e.target.value})}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.12)', color: T.text, outline: 'none', boxSizing: 'border-box', cursor: 'pointer' }}>
+                    {LEVELS.map(lv => <option key={lv} value={lv}>{LEVEL_ICONS[lv]} {lv}</option>)}
+                  </select>
                 </div>
                 <div style={{ display: 'flex', gap: 20 }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '0.88rem' }}>
