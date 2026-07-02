@@ -41,6 +41,7 @@ export default function AdminNav({ activePath }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 0, flex: 1, overflowX: 'auto', scrollbarWidth: 'none' }}>
         {[
           { to: '/admin',                  label: '📊 Overview',       matchExact: true },
+          { to: '/admin/packages',         label: '📦 Packages',       matchExact: false },
           { to: '/admin/lessons',          label: '📚 Lessons',        matchExact: false },
           { to: '/admin/schools',          label: '🏫 Schools',        matchExact: false },
           { to: '/admin/subscriptions',    label: '💳 Subscriptions',  matchExact: false },

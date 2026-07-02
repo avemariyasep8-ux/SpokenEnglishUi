@@ -635,3 +635,89 @@ describe('Feature 12 – Translate (arrange + tamil) CRUD', () => {
     expect(translate).toHaveLength(1)
   })
 })
+
+// ─── 13. Learning Packages (Phase 1) ─────────────────────────────────────────
+
+// Mirrors levelToPackageLevel in api.js
+function levelToPackageLevel(level) {
+  switch (level) {
+    case 'Beginner':
+    case 'Elementary':    return 'Beginner'
+    case 'Intermediate':  return 'Intermediate'
+    case 'College':
+    case 'Professional':  return 'Advanced'
+    default:              return 'Beginner'
+  }
+}
+
+function findUserPackage(packages, userLevel) {
+  const want = levelToPackageLevel(userLevel)
+  return packages.find(p => p.level === want) || null
+}
+
+function pkgPercent(completed, total) {
+  return total > 0 ? Math.round((completed / total) * 100) : 0
+}
+
+describe('Feature 13 – Learning Packages', () => {
+  const packages = [
+    { package_id: 1, name: 'Beginner Package',     level: 'Beginner',     lesson_count: 10 },
+    { package_id: 2, name: 'Intermediate Package', level: 'Intermediate', lesson_count: 5 },
+    { package_id: 3, name: 'Advanced Package',     level: 'Advanced',     lesson_count: 0 },
+  ]
+
+  it('maps all 5 user levels to one of 3 packages', () => {
+    expect(levelToPackageLevel('Beginner')).toBe('Beginner')
+    expect(levelToPackageLevel('Elementary')).toBe('Beginner')
+    expect(levelToPackageLevel('Intermediate')).toBe('Intermediate')
+    expect(levelToPackageLevel('College')).toBe('Advanced')
+    expect(levelToPackageLevel('Professional')).toBe('Advanced')
+  })
+
+  it('unknown/undefined level defaults to Beginner', () => {
+    expect(levelToPackageLevel(undefined)).toBe('Beginner')
+    expect(levelToPackageLevel('xyz')).toBe('Beginner')
+  })
+
+  it('finds the correct package for an Elementary user', () => {
+    const pkg = findUserPackage(packages, 'Elementary')
+    expect(pkg.package_id).toBe(1)
+    expect(pkg.name).toBe('Beginner Package')
+  })
+
+  it('finds the Advanced package for a Professional user', () => {
+    expect(findUserPackage(packages, 'Professional').package_id).toBe(3)
+  })
+
+  it('returns null when no matching package exists', () => {
+    expect(findUserPackage([], 'Beginner')).toBeNull()
+  })
+
+  it('computes package progress percentage (rounded)', () => {
+    expect(pkgPercent(0, 0)).toBe(0)
+    expect(pkgPercent(0, 10)).toBe(0)
+    expect(pkgPercent(5, 10)).toBe(50)
+    expect(pkgPercent(1, 3)).toBe(33)
+    expect(pkgPercent(2, 3)).toBe(67)
+    expect(pkgPercent(10, 10)).toBe(100)
+  })
+
+  it('per-category breakdown rolls up to overall completion', () => {
+    const byCategory = [
+      { category: 'Grammar',      total: 4, completed: 4 },
+      { category: 'Vocabulary',   total: 3, completed: 1 },
+      { category: 'Conversation', total: 3, completed: 0 },
+    ]
+    const total = byCategory.reduce((s, c) => s + c.total, 0)
+    const completed = byCategory.reduce((s, c) => s + c.completed, 0)
+    expect(total).toBe(10)
+    expect(completed).toBe(5)
+    expect(pkgPercent(completed, total)).toBe(50)
+  })
+
+  it('valid categories are the three lesson types', () => {
+    const CATEGORIES = ['Grammar', 'Vocabulary', 'Conversation']
+    expect(CATEGORIES).toHaveLength(3)
+    expect(CATEGORIES).toContain('Conversation')
+  })
+})

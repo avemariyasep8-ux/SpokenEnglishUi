@@ -21,6 +21,7 @@ import AdminAddLesson from './pages/AdminAddLesson'
 import AdminLessonContent from './pages/AdminLessonContent'
 import AdminSchools from './pages/AdminSchools'
 import AdminSubscriptions from './pages/AdminSubscriptions'
+import AdminPackages from './pages/AdminPackages'
 import Subscription from './pages/Subscription'
 
 // ── Route Wrappers ────────────────────────────────────
@@ -80,6 +81,7 @@ export default function App() {
           <Route path="/admin/meaning/:lessonId"        element={<AdminRoute><AdminMeaningQuestions /></AdminRoute>} />
           <Route path="/admin/arrange/:lessonId"        element={<AdminRoute><AdminArrangeSentences /></AdminRoute>} />
           <Route path="/admin/bulk"                     element={<AdminRoute><AdminBulkUpload /></AdminRoute>} />
+          <Route path="/admin/packages"                 element={<AdminRoute><AdminPackages /></AdminRoute>} />
           <Route path="/admin/schools"                  element={<AdminRoute><AdminSchools /></AdminRoute>} />
           <Route path="/admin/subscriptions"            element={<AdminRoute><AdminSubscriptions /></AdminRoute>} />
 

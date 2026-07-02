@@ -150,6 +150,27 @@ export const adminSetLessonAccess  = (userId, lessonId, hasAccess) =>
 // ── Admin – Export CSV ────────────────────────────────────────────────────
 export const adminExportCsv        = (type) => API.get(`/admin/export/${type}`, { responseType: 'blob' })
 
+// ── Learning Packages ─────────────────────────────────────────────────────────
+export const getPackages           = () => API.get('/package')
+export const getPackage            = (id) => API.get(`/package/${id}`)
+export const getPackageProgress    = (id, userId) => API.get(`/package/${id}/progress/${userId}`)
+export const createPackage         = (data) => API.post('/package', data)
+export const updatePackage         = (id, data) => API.put(`/package/${id}`, data)
+export const deletePackage         = (id) => API.delete(`/package/${id}`)
+export const assignLessonToPackage = (data) => API.post('/package/assign-lesson', data)
+
+// Map a user's fine-grained level to one of the 3 package levels (mirrors API).
+export const levelToPackageLevel = (level) => {
+  switch (level) {
+    case 'Beginner':
+    case 'Elementary':    return 'Beginner'
+    case 'Intermediate':  return 'Intermediate'
+    case 'College':
+    case 'Professional':  return 'Advanced'
+    default:              return 'Beginner'
+  }
+}
+
 // ── Schools ───────────────────────────────────────────────────────────────────
 export const getSchools            = () => API.get('/school')
 export const createSchool          = (data) => API.post('/school', data)

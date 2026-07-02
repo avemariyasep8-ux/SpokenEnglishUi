@@ -2,9 +2,14 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
-import { getLessons, getUserProgress, getStreak, getMySubscription } from '../services/api'
+import {
+  getLessons, getUserProgress, getStreak, getMySubscription,
+  getPackages, getPackageProgress, levelToPackageLevel,
+} from '../services/api'
 
 const LANGUAGE_ID = 1
+const CAT_ICON = { Grammar: '📝', Vocabulary: '📖', Conversation: '💬' }
+const CAT_COLOR = { Grammar: '#818cf8', Vocabulary: '#34d399', Conversation: '#fb923c' }
 
 export default function Dashboard() {
   const { user, logout } = useAuth()
@@ -13,6 +18,8 @@ export default function Dashboard() {
   const [loading, setLoading]   = useState(true)
   const [streak, setStreak]     = useState(null)
   const [mySub, setMySub]       = useState(null)
+  const [myPackage, setMyPackage]   = useState(null)
+  const [pkgProgress, setPkgProgress] = useState(null)
 
   useEffect(() => {
     Promise.all([
@@ -20,11 +27,23 @@ export default function Dashboard() {
       user?.userId ? getUserProgress(user.userId, LANGUAGE_ID) : Promise.resolve({ data: [] }),
       user?.userId ? getStreak(user.userId).catch(() => ({ data: null })) : Promise.resolve({ data: null }),
       user?.userId ? getMySubscription(user.userId).catch(() => ({ data: null })) : Promise.resolve({ data: null }),
-    ]).then(([lRes, pRes, stkRes, subRes]) => {
+      getPackages().catch(() => ({ data: [] })),
+    ]).then(([lRes, pRes, stkRes, subRes, pkgRes]) => {
       setLessons(lRes.data || [])
       setProgress(pRes.data || [])
       setStreak(stkRes.data)
       if (subRes.data?.status && subRes.data.status !== 'none') setMySub(subRes.data)
+
+      // Find the package matching the user's level and load its progress.
+      const wantLevel = levelToPackageLevel(user?.level)
+      const pkg = (pkgRes.data || []).find(p => p.level === wantLevel)
+      if (pkg) {
+        setMyPackage(pkg)
+        if (user?.userId) {
+          getPackageProgress(pkg.package_id, user.userId)
+            .then(r => setPkgProgress(r.data)).catch(() => {})
+        }
+      }
     }).finally(() => setLoading(false))
   }, [user])
 
@@ -106,6 +125,49 @@ export default function Dashboard() {
               </div>
             )}
           </motion.div>
+
+          {/* Learning Package progress */}
+          {myPackage && (
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+              style={{ background: 'rgba(129,140,248,0.08)', border: '1px solid rgba(129,140,248,0.25)', borderRadius: 16, padding: '20px 24px', marginBottom: 28 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+                <div>
+                  <div style={{ color: '#c4b5fd', fontWeight: 800, fontSize: '1.05rem' }}>📦 {myPackage.name}</div>
+                  <div style={{ color: '#666', fontSize: '0.8rem' }}>{myPackage.description}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ color: '#818cf8', fontWeight: 900, fontSize: '1.6rem', lineHeight: 1 }}>{pkgProgress?.percent ?? 0}%</div>
+                  <div style={{ color: '#666', fontSize: '0.72rem' }}>{pkgProgress?.completed ?? 0}/{pkgProgress?.total ?? myPackage.lesson_count} lessons</div>
+                </div>
+              </div>
+              {/* Overall bar */}
+              <div style={{ height: 10, background: 'rgba(255,255,255,0.08)', borderRadius: 99, overflow: 'hidden', marginBottom: 16 }}>
+                <motion.div initial={{ width: 0 }} animate={{ width: `${pkgProgress?.percent ?? 0}%` }} transition={{ duration: 0.8 }}
+                  style={{ height: '100%', background: 'linear-gradient(90deg,#818cf8,#38bdf8)', borderRadius: 99 }} />
+              </div>
+              {/* Per-category bars */}
+              {pkgProgress?.byCategory?.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 }}>
+                  {pkgProgress.byCategory.map(c => {
+                    const total = Number(c.total), done = Number(c.completed)
+                    const pct = total > 0 ? Math.round(done / total * 100) : 0
+                    const color = CAT_COLOR[c.category] || '#818cf8'
+                    return (
+                      <div key={c.category}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: 4 }}>
+                          <span style={{ color, fontWeight: 700 }}>{CAT_ICON[c.category] || '📚'} {c.category}</span>
+                          <span style={{ color: '#888' }}>{done}/{total} · {pct}%</span>
+                        </div>
+                        <div style={{ height: 7, background: 'rgba(255,255,255,0.08)', borderRadius: 99, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 99, transition: 'width 0.6s' }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </motion.div>
+          )}
 
           {/* Stats */}
           <div className="stats-grid" style={{ marginBottom: 40 }}>
