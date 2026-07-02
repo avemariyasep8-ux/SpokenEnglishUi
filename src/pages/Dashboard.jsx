@@ -61,9 +61,10 @@ export default function Dashboard() {
         <nav className="navbar">
           <span className="navbar-logo">✦ Spoken English</span>
           <div className="navbar-links">
-            <Link to="/dashboard"    className="nav-link active">Dashboard</Link>
-            <Link to="/lessons"      className="nav-link">Lessons</Link>
-            <Link to="/progress"     className="nav-link">Progress</Link>
+            <Link to="/dashboard"     className="nav-link active">Dashboard</Link>
+            <Link to="/lessons"       className="nav-link">Lessons</Link>
+            <Link to="/conversations" className="nav-link">💬 Conversations</Link>
+            <Link to="/progress"      className="nav-link">Progress</Link>
             <Link to="/subscription" className="nav-link">👑 Plans</Link>
             {user?.role === 'Admin' && (
               <Link to="/admin" className="nav-link" style={{ color: '#38bdf8', fontWeight: 700 }}>⚙ Admin Panel</Link>

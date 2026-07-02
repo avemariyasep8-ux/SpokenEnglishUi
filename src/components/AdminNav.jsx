@@ -43,6 +43,7 @@ export default function AdminNav({ activePath }) {
           { to: '/admin',                  label: '📊 Overview',       matchExact: true },
           { to: '/admin/packages',         label: '📦 Packages',       matchExact: false },
           { to: '/admin/lessons',          label: '📚 Lessons',        matchExact: false },
+          { to: '/admin/conversations',    label: '💬 Conversations',  matchExact: false },
           { to: '/admin/schools',          label: '🏫 Schools',        matchExact: false },
           { to: '/admin/subscriptions',    label: '💳 Subscriptions',  matchExact: false },
         ].map(link => {

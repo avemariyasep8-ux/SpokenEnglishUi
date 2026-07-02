@@ -171,6 +171,17 @@ export const levelToPackageLevel = (level) => {
   }
 }
 
+// ── Conversation Lessons ──────────────────────────────────────────────────────
+export const getConversations       = (level) => API.get('/conversation', { params: level ? { level } : {} })
+export const getConversation        = (id) => API.get(`/conversation/${id}`)
+export const adminGetConversations  = () => API.get('/conversation/admin')
+export const createConversation     = (data) => API.post('/conversation', data)
+export const updateConversation     = (id, data) => API.put(`/conversation/${id}`, data)
+export const deleteConversation     = (id) => API.delete(`/conversation/${id}`)
+export const addConversationTurn    = (id, data) => API.post(`/conversation/${id}/turn`, data)
+export const updateConversationTurn = (turnId, data) => API.put(`/conversation/turn/${turnId}`, data)
+export const deleteConversationTurn = (turnId) => API.delete(`/conversation/turn/${turnId}`)
+
 // ── Schools ───────────────────────────────────────────────────────────────────
 export const getSchools            = () => API.get('/school')
 export const createSchool          = (data) => API.post('/school', data)

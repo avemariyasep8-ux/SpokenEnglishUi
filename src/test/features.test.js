@@ -721,3 +721,72 @@ describe('Feature 13 – Learning Packages', () => {
     expect(CATEGORIES).toContain('Conversation')
   })
 })
+
+// ─── 14. Conversation Lessons (Phase 2) ──────────────────────────────────────
+
+// Mirrors matches() in ConversationPlay.jsx
+function convNormalize(s) {
+  return (s || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim()
+}
+function convMatches(said, expected) {
+  const n1 = convNormalize(said)
+  const n2 = convNormalize(expected)
+  if (!n2) return true
+  if (n1 === n2 || n1.includes(n2)) return true
+  const words = n2.split(' ').filter(Boolean)
+  const hit = words.filter(w => n1.includes(w)).length
+  return hit >= Math.ceil(words.length * 0.7)
+}
+function isSystemOnly(turn) {
+  return !turn.expected_response
+}
+
+describe('Feature 14 – Conversation Lessons', () => {
+  it('accepts an exact reply', () => {
+    expect(convMatches('I would like a tea', 'I would like a tea')).toBe(true)
+  })
+
+  it('is case- and punctuation-insensitive', () => {
+    expect(convMatches('I Would Like A Tea!', 'i would like a tea')).toBe(true)
+  })
+
+  it('accepts a reply containing the expected phrase', () => {
+    expect(convMatches('yes I would like a tea please', 'I would like a tea')).toBe(true)
+  })
+
+  it('accepts when ≥70% of expected words are present', () => {
+    // 4 of 5 words present → 80%
+    expect(convMatches('I would like tea', 'I would like a tea')).toBe(true)
+  })
+
+  it('rejects an unrelated reply', () => {
+    expect(convMatches('goodbye see you', 'I would like a tea')).toBe(false)
+  })
+
+  it('a system-only line (no expected response) auto-advances', () => {
+    expect(isSystemOnly({ system_text: 'Thank you!', expected_response: null })).toBe(true)
+    expect(isSystemOnly({ system_text: 'What would you like?', expected_response: 'a tea' })).toBe(false)
+  })
+
+  it('empty expected response always matches (treated as free/greeting turn)', () => {
+    expect(convMatches('anything', '')).toBe(true)
+    expect(convMatches('anything', null)).toBe(true)
+  })
+
+  it('walks turns in order and completes at the end', () => {
+    const turns = [
+      { turn_order: 1, system_text: 'Good morning!', expected_response: 'Good morning' },
+      { turn_order: 2, system_text: 'What would you like?', expected_response: 'I would like a tea' },
+      { turn_order: 3, system_text: 'Thank you!', expected_response: null },
+    ]
+    let idx = 0
+    // turn 1: learner says correct → advance
+    if (convMatches('good morning', turns[0].expected_response)) idx++
+    // turn 2: learner says correct → advance
+    if (convMatches('i would like a tea', turns[1].expected_response)) idx++
+    // turn 3: system-only → auto-advance → finished
+    const finished = isSystemOnly(turns[idx]) && idx === turns.length - 1
+    expect(idx).toBe(2)
+    expect(finished).toBe(true)
+  })
+})

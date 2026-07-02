@@ -22,6 +22,9 @@ import AdminLessonContent from './pages/AdminLessonContent'
 import AdminSchools from './pages/AdminSchools'
 import AdminSubscriptions from './pages/AdminSubscriptions'
 import AdminPackages from './pages/AdminPackages'
+import AdminConversations from './pages/AdminConversations'
+import Conversations from './pages/Conversations'
+import ConversationPlay from './pages/ConversationPlay'
 import Subscription from './pages/Subscription'
 
 // ── Route Wrappers ────────────────────────────────────
@@ -64,6 +67,8 @@ export default function App() {
           <Route path="/progress"  element={<PrivateRoute><Progress /></PrivateRoute>} />
           <Route path="/lesson/:lessonId/play" element={<PrivateRoute><LessonPlay /></PrivateRoute>} />
           <Route path="/lesson/:lessonId/flow" element={<PrivateRoute><LessonFlow /></PrivateRoute>} />
+          <Route path="/conversations"          element={<PrivateRoute><Conversations /></PrivateRoute>} />
+          <Route path="/conversation/:id/play"  element={<PrivateRoute><ConversationPlay /></PrivateRoute>} />
 
           {/* Activity Routes */}
           <Route path="/meaning/:lessonId" element={<PrivateRoute><WordMeaning /></PrivateRoute>} />
@@ -82,6 +87,7 @@ export default function App() {
           <Route path="/admin/arrange/:lessonId"        element={<AdminRoute><AdminArrangeSentences /></AdminRoute>} />
           <Route path="/admin/bulk"                     element={<AdminRoute><AdminBulkUpload /></AdminRoute>} />
           <Route path="/admin/packages"                 element={<AdminRoute><AdminPackages /></AdminRoute>} />
+          <Route path="/admin/conversations"            element={<AdminRoute><AdminConversations /></AdminRoute>} />
           <Route path="/admin/schools"                  element={<AdminRoute><AdminSchools /></AdminRoute>} />
           <Route path="/admin/subscriptions"            element={<AdminRoute><AdminSubscriptions /></AdminRoute>} />
 
