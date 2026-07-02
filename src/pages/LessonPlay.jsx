@@ -5,7 +5,7 @@ import {
   getMeaningQuestionsAdmin, getArrangeSentences,
   getWordContent, getLessons, updateStreak, completeLesson
 } from '../services/api'
-import { speak, speakTamil, listen, normalizeText, diffWords, isSpeechRecognitionSupported } from '../services/speechUtils'
+import { speak, speakTamil, translateAndSpeakTamil, listen, normalizeText, diffWords, isSpeechRecognitionSupported } from '../services/speechUtils'
 import { useAuth } from '../context/AuthContext'
 
 const LANG = 1
@@ -241,7 +241,7 @@ function ExampleStep({ word, lang, onNext }) {
         <p style={{ color: T.text, fontSize: '1.25rem', fontWeight: 600, lineHeight: 1.7, fontStyle: 'italic', margin: 0 }}>
           "{highlight(exEn)}"
         </p>
-        <SpeakRow text={exEn} onTamil={t => speakTamil(t)} />
+        <SpeakRow text={exEn} onTamil={t => translateAndSpeakTamil(t)} />
       </div>
 
       {exTa && (

@@ -93,20 +93,61 @@ export const translateText = async (text, fromLang = 'en', toLang = 'ta') => {
   }
 }
 
-// Tamil TTS: translate then speak at slow rate
-export const speakTamil = async (englishText) => {
-  const tamil = await translateText(englishText, 'en', 'ta')
-  if (tamil) {
-    const voices = getVoices()
-    const taVoice = voices.find(v => v.lang === 'ta-IN')
-    const u = new SpeechSynthesisUtterance(tamil)
-    u.lang = 'ta-IN'
-    u.rate = 0.85
-    if (taVoice) u.voice = taVoice
+// Preferred native Tamil voices (Google's online voice sounds like a real Tamil speaker)
+const PREFERRED_TAMIL_VOICES = [
+  'Google தமிழ்',
+  'Google Tamil',
+  'Microsoft Valluvar - Tamil (India)',
+  'Microsoft Pallavi - Tamil (India)',
+]
+
+// Pick the best-sounding Tamil voice available in the browser.
+export function pickTamilVoice() {
+  const voices = getVoices()
+  for (const name of PREFERRED_TAMIL_VOICES) {
+    const v = voices.find(v => v.name === name)
+    if (v) return v
+  }
+  return voices.find(v => v.lang === 'ta-IN') ||
+         voices.find(v => v.lang === 'ta_IN') ||
+         voices.find(v => (v.lang || '').toLowerCase().startsWith('ta')) ||
+         voices.find(v => /tamil|தமிழ/i.test(v.name)) ||
+         null
+}
+
+// Speak Tamil text DIRECTLY (input is already Tamil). Uses a native Tamil voice so it
+// sounds like a Tamil speaker — never an English voice reading Tamil glyphs.
+export const speakTamil = (tamilText) => {
+  if (!window.speechSynthesis || !tamilText) return
+
+  const doSpeak = () => {
+    const voice = pickTamilVoice()
+    const u = new SpeechSynthesisUtterance(tamilText)
+    u.lang   = voice?.lang || 'ta-IN'
+    u.rate   = 0.82   // clear & natural for learners
+    u.pitch  = 1
+    u.volume = 1
+    if (voice) u.voice = voice
     window.speechSynthesis.cancel()
-    window.speechSynthesis.speak(u)
+    setTimeout(() => window.speechSynthesis.speak(u), 50)
+  }
+
+  // Voices may load asynchronously on first use — wait for them.
+  if (getVoices().length === 0) {
+    window.speechSynthesis.addEventListener('voiceschanged', doSpeak, { once: true })
+  } else {
+    doSpeak()
   }
 }
+
+// Translate English → Tamil, then speak it (for callers that only have English text).
+export const translateAndSpeakTamil = async (englishText) => {
+  const tamil = await translateText(englishText, 'en', 'ta')
+  if (tamil) speakTamil(tamil)
+}
+
+// True only if the browser actually has a Tamil voice installed.
+export const isTamilVoiceAvailable = () => !!pickTamilVoice()
 
 // Check if speech recognition is available (Chrome/Edge only)
 export const isSpeechRecognitionSupported = () =>

@@ -99,10 +99,8 @@ export default function Register() {
               <select value={form.level} onChange={e => setForm({ ...form, level: e.target.value })}
                 style={{ ...inp, cursor: 'pointer' }}>
                 <option value="Beginner">🌱 Beginner</option>
-                <option value="Elementary">📗 Elementary</option>
                 <option value="Intermediate">📘 Intermediate</option>
-                <option value="College">🎓 College</option>
-                <option value="Professional">💼 Professional</option>
+                <option value="Advanced">🎓 Advanced</option>
               </select>
             </div>
 

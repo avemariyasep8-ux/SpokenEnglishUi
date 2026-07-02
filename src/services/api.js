@@ -165,6 +165,7 @@ export const levelToPackageLevel = (level) => {
     case 'Beginner':
     case 'Elementary':    return 'Beginner'
     case 'Intermediate':  return 'Intermediate'
+    case 'Advanced':
     case 'College':
     case 'Professional':  return 'Advanced'
     default:              return 'Beginner'

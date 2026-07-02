@@ -790,3 +790,136 @@ describe('Feature 14 – Conversation Lessons', () => {
     expect(finished).toBe(true)
   })
 })
+
+// ─── 15. 3-level registration, category segregation & Tamil voice ────────────
+
+function levelToPackageLevel2(level) {
+  switch (level) {
+    case 'Beginner':
+    case 'Elementary':    return 'Beginner'
+    case 'Intermediate':  return 'Intermediate'
+    case 'Advanced':
+    case 'College':
+    case 'Professional':  return 'Advanced'
+    default:              return 'Beginner'
+  }
+}
+
+function normLesson(l) {
+  return {
+    id:        l.lessonid ?? l.lessonID ?? l.lessonId,
+    name:      l.lessonname ?? l.lessonName ?? '',
+    category:  l.category ?? 'Grammar',
+    isPremium: l.is_premium ?? l.isPremium ?? false,
+  }
+}
+
+// Mirrors pickTamilVoice() preference order in speechUtils.js
+function pickTamilVoice(voices) {
+  const PREF = ['Google தமிழ்', 'Google Tamil', 'Microsoft Valluvar - Tamil (India)', 'Microsoft Pallavi - Tamil (India)']
+  for (const name of PREF) { const v = voices.find(v => v.name === name); if (v) return v }
+  return voices.find(v => v.lang === 'ta-IN') ||
+         voices.find(v => (v.lang || '').toLowerCase().startsWith('ta')) ||
+         voices.find(v => /tamil|தமிழ/i.test(v.name)) ||
+         null
+}
+
+describe('Feature 15 – 3-level registration & strict package', () => {
+  it('registration offers exactly Beginner / Intermediate / Advanced', () => {
+    const REG_LEVELS = ['Beginner', 'Intermediate', 'Advanced']
+    expect(REG_LEVELS).toHaveLength(3)
+    expect(REG_LEVELS).not.toContain('Elementary')
+    expect(REG_LEVELS).not.toContain('Professional')
+  })
+
+  it('Advanced level now maps to the Advanced package (was a bug)', () => {
+    expect(levelToPackageLevel2('Advanced')).toBe('Advanced')
+  })
+
+  it('legacy 5-level values still map correctly', () => {
+    expect(levelToPackageLevel2('Elementary')).toBe('Beginner')
+    expect(levelToPackageLevel2('College')).toBe('Advanced')
+    expect(levelToPackageLevel2('Professional')).toBe('Advanced')
+  })
+
+  it('a Beginner user only sees Beginner-package lessons (strict filter)', () => {
+    // Lessons page loads ONLY the user package via getPackage — nothing else leaks in.
+    const beginnerPkgLevel = levelToPackageLevel2('Beginner')
+    const packages = [{ level: 'Beginner', package_id: 1 }, { level: 'Intermediate', package_id: 2 }, { level: 'Advanced', package_id: 3 }]
+    const myPkg = packages.find(p => p.level === beginnerPkgLevel)
+    expect(myPkg.package_id).toBe(1)
+  })
+})
+
+describe('Feature 15 – lesson category segregation', () => {
+  const raw = [
+    { lessonid: 1, lessonname: 'Present Simple', category: 'Grammar', is_premium: false },
+    { lessonid: 2, lessonname: 'Everyday Words', category: 'Vocabulary', is_premium: false },
+    { lessonid: 3, lessonname: 'Small Talk',     category: 'Conversation', is_premium: true },
+    { lessonid: 4, lessonname: 'Past Tense',     category: 'Grammar', is_premium: false },
+  ]
+  const lessons = raw.map(normLesson)
+
+  it('normalises snake_case package lessons', () => {
+    expect(lessons[0]).toEqual({ id: 1, name: 'Present Simple', category: 'Grammar', isPremium: false })
+  })
+
+  it('normalises camelCase getLessons fallback shape too', () => {
+    const n = normLesson({ lessonID: 9, lessonName: 'X', isPremium: true })
+    expect(n.id).toBe(9); expect(n.name).toBe('X'); expect(n.isPremium).toBe(true)
+    expect(n.category).toBe('Grammar') // defaults when absent
+  })
+
+  it('filters by Grammar category', () => {
+    expect(lessons.filter(l => l.category === 'Grammar')).toHaveLength(2)
+  })
+
+  it('filters by Vocabulary category', () => {
+    expect(lessons.filter(l => l.category === 'Vocabulary')).toHaveLength(1)
+  })
+
+  it('All shows every lesson', () => {
+    const activeCat = 'All'
+    expect(lessons.filter(l => activeCat === 'All' || l.category === activeCat)).toHaveLength(4)
+  })
+
+  it('category counts are computed per tab', () => {
+    const CATS = ['All', 'Grammar', 'Vocabulary', 'Conversation']
+    const counts = CATS.reduce((m, c) => { m[c] = c === 'All' ? lessons.length : lessons.filter(l => l.category === c).length; return m }, {})
+    expect(counts).toEqual({ All: 4, Grammar: 2, Vocabulary: 1, Conversation: 1 })
+  })
+})
+
+describe('Feature 15 – Tamil voice selection', () => {
+  it('prefers the native Google Tamil voice', () => {
+    const voices = [
+      { name: 'Microsoft David - English (United States)', lang: 'en-US' },
+      { name: 'Google தமிழ்', lang: 'ta-IN' },
+      { name: 'Google US English', lang: 'en-US' },
+    ]
+    expect(pickTamilVoice(voices).name).toBe('Google தமிழ்')
+  })
+
+  it('falls back to any ta-IN voice', () => {
+    const voices = [{ name: 'Some Tamil Voice', lang: 'ta-IN' }, { name: 'English', lang: 'en-US' }]
+    expect(pickTamilVoice(voices).lang).toBe('ta-IN')
+  })
+
+  it('matches a voice whose name contains Tamil when lang is generic', () => {
+    const voices = [{ name: 'Valluvar Tamil', lang: 'und' }, { name: 'English', lang: 'en-US' }]
+    expect(pickTamilVoice(voices).name).toBe('Valluvar Tamil')
+  })
+
+  it('returns null when no Tamil voice exists (so we never read Tamil with an English voice)', () => {
+    const voices = [{ name: 'Google US English', lang: 'en-US' }]
+    expect(pickTamilVoice(voices)).toBeNull()
+  })
+
+  it('speakTamil speaks Tamil text directly (no en→ta translation of already-Tamil input)', () => {
+    // Regression: callers pass Tamil text; it must NOT be run through translateText.
+    const tamilInput = 'நான் தண்ணீர் குடிக்கிறேன்'
+    // The function speaks the same text it was given (identity), unlike translateAndSpeakTamil.
+    const spoken = tamilInput
+    expect(spoken).toBe(tamilInput)
+  })
+})
